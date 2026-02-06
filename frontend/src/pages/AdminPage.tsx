@@ -40,7 +40,7 @@ export default function AdminPage() {
       const data = await getAllBookings();
       setBookings(data);
     } catch {
-      setBookings([]);
+      setError("Не удалось загрузить записи");
     }
   };
 

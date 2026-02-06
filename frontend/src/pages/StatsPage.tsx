@@ -126,6 +126,7 @@ export default function StatsPage() {
   };
 
   const handleDeleteExpense = async (id: number) => {
+    if (!window.confirm("Удалить этот расход?")) return;
     try {
       await deleteExpense(id);
       setExpenses((prev) => prev.filter((e) => e.id !== id));

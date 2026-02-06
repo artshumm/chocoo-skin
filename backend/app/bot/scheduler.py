@@ -94,8 +94,11 @@ async def _check_reminders() -> None:
                     f"Ждём вас!"
                 )
                 try:
-                    await bot.send_message(
-                        chat_id=booking.client.telegram_id, text=text
+                    await asyncio.wait_for(
+                        bot.send_message(
+                            chat_id=booking.client.telegram_id, text=text
+                        ),
+                        timeout=10.0,
                     )
                     logger.info(
                         "Reminder sent to %s for booking %s",
@@ -123,11 +126,6 @@ async def _check_morning_summary() -> None:
 
     if _last_summary_date == today_str:
         return
-
-    # Защита от дублей после рестарта: проверяем есть ли уже завершённые записи на сегодня
-    # (если auto_complete уже отработал, значит день уже начался и сводка была)
-    # Используем атомарную запись в _last_summary_date ПЕРЕД отправкой
-    _last_summary_date = today_str
 
     async with async_session() as db:
         today_date = now_minsk.date()
@@ -168,10 +166,15 @@ async def _check_morning_summary() -> None:
 
     for admin_id in settings.admin_id_list:
         try:
-            await bot.send_message(chat_id=admin_id, text=text)
+            await asyncio.wait_for(
+                bot.send_message(chat_id=admin_id, text=text),
+                timeout=10.0,
+            )
         except Exception as e:
             logger.warning("Failed to send morning summary to admin %s: %s", admin_id, e)
 
+    # Ставим флаг ПОСЛЕ отправки, чтобы retry был возможен при ошибке
+    _last_summary_date = today_str
     logger.info("Morning summary sent for %s (%d bookings)", today_str, len(bookings))
 
 

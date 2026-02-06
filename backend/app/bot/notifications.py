@@ -1,9 +1,12 @@
+import asyncio
 import logging
 
 from app.bot.bot_instance import bot
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+SEND_TIMEOUT = 10.0  # секунд на одно сообщение
 
 
 def _format_client_info(
@@ -85,7 +88,10 @@ async def notify_client_booking_confirmed(
         f"Напоминание: за {remind_before_hours} ч. до сеанса"
     )
     try:
-        await bot.send_message(chat_id=telegram_id, text=text)
+        await asyncio.wait_for(
+            bot.send_message(chat_id=telegram_id, text=text),
+            timeout=SEND_TIMEOUT,
+        )
     except Exception as e:
         logger.warning("Failed to send confirmation to client %s: %s", telegram_id, e)
 
@@ -94,6 +100,9 @@ async def _send_to_admins(text: str) -> None:
     """Отправляет сообщение всем админам. Ошибки логируются, не прерывают работу."""
     for admin_id in settings.admin_id_list:
         try:
-            await bot.send_message(chat_id=admin_id, text=text)
+            await asyncio.wait_for(
+                bot.send_message(chat_id=admin_id, text=text),
+                timeout=SEND_TIMEOUT,
+            )
         except Exception as e:
             logger.warning("Failed to send notification to admin %s: %s", admin_id, e)

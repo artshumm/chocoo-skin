@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/expenses", tags=["expenses"])
 
 @router.get("/", response_model=list[ExpenseResponse])
 async def get_expenses(
-    month: str = Query(..., description="Месяц в формате YYYY-MM"),
+    month: str = Query(..., description="Месяц в формате YYYY-MM", pattern=r"^\d{4}-(0[1-9]|1[0-2])$"),
     _admin: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
