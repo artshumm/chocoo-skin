@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getAllSlots, generateSlots, updateSlot, getAllBookings } from "../api/client";
+import { getAllSlots, generateSlots, updateSlot, getAllBookings, adminCancelBooking } from "../api/client";
 import type { Slot, Booking } from "../types";
 import Calendar from "../components/Calendar";
 import TimeGrid from "../components/TimeGrid";
@@ -25,6 +25,7 @@ export default function AdminPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
 
   const loadSlots = async (date: string) => {
     try {
@@ -93,6 +94,22 @@ export default function AdminPage() {
     }
   };
 
+  const handleAdminCancel = async (bookingId: number, clientName: string) => {
+    if (!confirm(`Отменить запись клиента ${clientName}?`)) return;
+    setCancellingId(bookingId);
+    setError("");
+    try {
+      await adminCancelBooking(bookingId);
+      setSuccess("Запись отменена");
+      await loadBookings();
+      if (selectedDate) await loadSlots(selectedDate);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка отмены");
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
   // Filter bookings for selected date
   const dateBookings = bookings.filter(
     (b) => b.slot.date === selectedDate && b.status !== "cancelled"
@@ -157,6 +174,16 @@ export default function AdminPage() {
                   <div className="booking-datetime">
                     {b.service.name} · {b.slot.start_time.slice(0, 5)} - {b.slot.end_time.slice(0, 5)}
                   </div>
+                  {b.status === "confirmed" && (
+                    <button
+                      className="btn btn-danger"
+                      style={{ marginTop: 8, padding: "6px 12px", fontSize: 13 }}
+                      disabled={cancellingId === b.id}
+                      onClick={() => handleAdminCancel(b.id, b.client.first_name || b.client.username || "?")}
+                    >
+                      {cancellingId === b.id ? "Отмена..." : "Отменить запись"}
+                    </button>
+                  )}
                 </div>
               ))}
             </>

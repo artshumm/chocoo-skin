@@ -9,6 +9,7 @@ from app.api.deps import get_telegram_user, require_admin
 from app.bot.notifications import (
     notify_admins_cancelled_booking,
     notify_admins_new_booking,
+    notify_client_booking_cancelled_by_admin,
     notify_client_booking_confirmed,
 )
 from app.core.database import get_db
@@ -188,6 +189,71 @@ async def cancel_booking(
         )
     )
     booking = result.scalar_one()
+
+    # Уведомляем админов
+    await notify_admins_cancelled_booking(
+        first_name=booking.client.first_name,
+        username=booking.client.username,
+        phone=booking.client.phone,
+        service_name=booking.service.name,
+        slot_date=str(booking.slot.date),
+        slot_time=booking.slot.start_time.strftime("%H:%M"),
+    )
+
+    return booking
+
+
+@router.patch("/{booking_id}/admin-cancel", response_model=BookingResponse)
+async def admin_cancel_booking(
+    booking_id: int,
+    _admin: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Админ отменяет запись клиента (без ограничения по времени)."""
+    result = await db.execute(
+        select(Booking)
+        .where(Booking.id == booking_id)
+        .options(
+            selectinload(Booking.client),
+            selectinload(Booking.service),
+            selectinload(Booking.slot),
+        )
+        .with_for_update()
+    )
+    booking = result.scalar_one_or_none()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Запись не найдена")
+
+    if booking.status == BookingStatus.cancelled:
+        raise HTTPException(status_code=400, detail="Запись уже отменена")
+    if booking.status == BookingStatus.completed:
+        raise HTTPException(status_code=400, detail="Завершённую запись нельзя отменить")
+
+    booking.status = BookingStatus.cancelled
+    if booking.slot.status == SlotStatus.booked:
+        booking.slot.status = SlotStatus.available
+
+    await db.commit()
+
+    # Reload with relations
+    result = await db.execute(
+        select(Booking)
+        .where(Booking.id == booking.id)
+        .options(
+            selectinload(Booking.client),
+            selectinload(Booking.service),
+            selectinload(Booking.slot),
+        )
+    )
+    booking = result.scalar_one()
+
+    # Уведомляем клиента
+    await notify_client_booking_cancelled_by_admin(
+        telegram_id=booking.client.telegram_id,
+        service_name=booking.service.name,
+        slot_date=str(booking.slot.date),
+        slot_time=booking.slot.start_time.strftime("%H:%M"),
+    )
 
     # Уведомляем админов
     await notify_admins_cancelled_booking(

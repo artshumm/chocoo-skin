@@ -99,6 +99,11 @@ export const updateSlot = (slotId: number, status: string) =>
 export const getAllBookings = () =>
   request<Booking[]>("/api/bookings/all");
 
+export const adminCancelBooking = (bookingId: number) =>
+  request<Booking>(`/api/bookings/${bookingId}/admin-cancel`, {
+    method: "PATCH",
+  });
+
 // Expenses (Admin)
 export const getExpenses = (month: string) =>
   request<Expense[]>(`/api/expenses/?month=${month}`);

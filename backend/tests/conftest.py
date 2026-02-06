@@ -174,5 +174,6 @@ def mock_notifications():
         patch("app.api.bookings.notify_admins_new_booking", new_callable=AsyncMock) as m1,
         patch("app.api.bookings.notify_client_booking_confirmed", new_callable=AsyncMock) as m2,
         patch("app.api.bookings.notify_admins_cancelled_booking", new_callable=AsyncMock) as m3,
+        patch("app.api.bookings.notify_client_booking_cancelled_by_admin", new_callable=AsyncMock) as m4,
     ):
-        yield {"new": m1, "confirmed": m2, "cancelled": m3}
+        yield {"new": m1, "confirmed": m2, "cancelled": m3, "admin_cancelled": m4}

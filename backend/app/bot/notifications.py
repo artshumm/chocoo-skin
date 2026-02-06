@@ -96,6 +96,29 @@ async def notify_client_booking_confirmed(
         logger.warning("Failed to send confirmation to client %s: %s", telegram_id, e)
 
 
+async def notify_client_booking_cancelled_by_admin(
+    telegram_id: int,
+    service_name: str,
+    slot_date: str,
+    slot_time: str,
+) -> None:
+    """Уведомляет клиента об отмене записи администратором."""
+    text = (
+        f"Ваша запись отменена администратором.\n\n"
+        f"Услуга: {service_name}\n"
+        f"Дата: {slot_date}\n"
+        f"Время: {slot_time}\n\n"
+        f"Для повторной записи откройте приложение."
+    )
+    try:
+        await asyncio.wait_for(
+            bot.send_message(chat_id=telegram_id, text=text),
+            timeout=SEND_TIMEOUT,
+        )
+    except Exception as e:
+        logger.warning("Failed to send cancellation to client %s: %s", telegram_id, e)
+
+
 async def _send_to_admins(text: str) -> None:
     """Отправляет сообщение всем админам. Ошибки логируются, не прерывают работу."""
     for admin_id in settings.admin_id_list:

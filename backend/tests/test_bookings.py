@@ -135,3 +135,64 @@ async def test_get_all_bookings_admin(admin_client):
 async def test_get_all_bookings_pagination(admin_client):
     r = await admin_client.get("/api/bookings/all", params={"skip": 0, "limit": 10})
     assert r.status_code == 200
+
+
+# --- Admin cancel ---
+
+
+async def test_admin_cancel_booking(
+    admin_client, db, seed_user, seed_service, seed_slot, mock_notifications
+):
+    """Admin can cancel any booking without time restriction."""
+    # Create booking directly in DB to avoid client/admin_client override conflict
+    booking = Booking(
+        client_id=seed_user.id,
+        service_id=seed_service.id,
+        slot_id=seed_slot.id,
+        status=BookingStatus.confirmed,
+        remind_before_hours=2,
+    )
+    seed_slot.status = SlotStatus.booked
+    db.add(booking)
+    await db.commit()
+    await db.refresh(booking)
+
+    r = await admin_client.patch(f"/api/bookings/{booking.id}/admin-cancel")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["status"] == "cancelled"
+    assert data["slot"]["status"] == "available"
+    mock_notifications["admin_cancelled"].assert_called_once()
+    assert mock_notifications["cancelled"].call_count == 1  # admin notified too
+
+
+async def test_admin_cancel_already_cancelled(
+    admin_client, db, seed_user, seed_service, seed_slot, mock_notifications
+):
+    booking = Booking(
+        client_id=seed_user.id,
+        service_id=seed_service.id,
+        slot_id=seed_slot.id,
+        status=BookingStatus.confirmed,
+        remind_before_hours=2,
+    )
+    seed_slot.status = SlotStatus.booked
+    db.add(booking)
+    await db.commit()
+    await db.refresh(booking)
+
+    await admin_client.patch(f"/api/bookings/{booking.id}/admin-cancel")
+
+    r = await admin_client.patch(f"/api/bookings/{booking.id}/admin-cancel")
+    assert r.status_code == 400
+
+
+async def test_admin_cancel_nonexistent(admin_client, mock_notifications):
+    r = await admin_client.patch("/api/bookings/9999/admin-cancel")
+    assert r.status_code == 404
+
+
+async def test_admin_cancel_non_admin(client, mock_notifications):
+    """Regular user cannot use admin-cancel."""
+    r = await client.patch("/api/bookings/1/admin-cancel")
+    assert r.status_code == 403
