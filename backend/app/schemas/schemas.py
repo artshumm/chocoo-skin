@@ -1,6 +1,6 @@
 from datetime import date, datetime, time
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # ── Users ──
@@ -57,9 +57,9 @@ class SlotCreate(BaseModel):
     """Админ создаёт слоты на день."""
 
     date: date
-    start_hour: int = 9
-    end_hour: int = 21
-    interval_minutes: int = 30
+    start_hour: int = Field(default=9, ge=0, le=23)
+    end_hour: int = Field(default=21, ge=1, le=23)
+    interval_minutes: int = Field(default=30, ge=10, le=120)
 
 
 class SlotUpdate(BaseModel):
@@ -99,9 +99,9 @@ class BookingResponse(BaseModel):
 class ExpenseCreate(BaseModel):
     """Админ добавляет расход."""
 
-    name: str
-    amount: float
-    month: str  # "YYYY-MM"
+    name: str = Field(..., min_length=1, max_length=255)
+    amount: float = Field(..., gt=0)
+    month: str = Field(..., pattern=r"^\d{4}-\d{2}$")
 
 
 class ExpenseResponse(BaseModel):

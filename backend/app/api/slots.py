@@ -1,4 +1,4 @@
-from datetime import date, time, timedelta
+from datetime import date, time
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
@@ -54,25 +54,25 @@ async def generate_slots(
         )
 
     slots = []
-    current = time(data.start_hour, 0)
-    end = time(data.end_hour, 0)
-    delta = timedelta(minutes=data.interval_minutes)
+    current_minutes = data.start_hour * 60
+    end_minutes_limit = data.end_hour * 60
 
-    while current < end:
-        # Вычисляем end_time
-        end_minutes = current.hour * 60 + current.minute + data.interval_minutes
-        end_time = time(end_minutes // 60, end_minutes % 60)
+    while current_minutes + data.interval_minutes <= end_minutes_limit:
+        slot_end = current_minutes + data.interval_minutes
+        # Cap at 23:59 to avoid time overflow
+        if slot_end > 23 * 60 + 59:
+            break
 
         slot = Slot(
             date=data.date,
-            start_time=current,
-            end_time=end_time,
+            start_time=time(current_minutes // 60, current_minutes % 60),
+            end_time=time(slot_end // 60, slot_end % 60),
             status=SlotStatus.available,
         )
         db.add(slot)
         slots.append(slot)
 
-        current = end_time
+        current_minutes = slot_end
 
     await db.commit()
     for s in slots:

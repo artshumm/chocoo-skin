@@ -35,6 +35,12 @@ export default function HomePage() {
             <span className="label">Часы работы:</span> {salon.working_hours_text}
           </div>
         )}
+        {salon.instagram && (
+          <div className="info-row">
+            <span className="label">Instagram:</span>{" "}
+            <a href={salon.instagram} target="_blank" rel="noopener noreferrer">@chocoo.skin</a>
+          </div>
+        )}
       </div>
 
       {faq.length > 0 && (

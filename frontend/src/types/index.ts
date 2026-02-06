@@ -10,6 +10,7 @@ export interface User {
 export interface Service {
   id: number;
   name: string;
+  short_description: string;
   description: string;
   duration_minutes: number;
   price: number;
@@ -41,6 +42,7 @@ export interface SalonInfo {
   address: string;
   phone: string;
   working_hours_text: string;
+  instagram: string;
 }
 
 export interface FaqItem {

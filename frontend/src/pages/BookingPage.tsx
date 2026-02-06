@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getServices, getSlots, createBooking } from "../api/client";
 import type { Service, Slot } from "../types";
 import Calendar from "../components/Calendar";
@@ -18,6 +18,7 @@ export default function BookingPage({ telegramId }: Props) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [remindHours, setRemindHours] = useState(2);
+  const bookBtnRef = useRef<HTMLButtonElement>(null);
 
   const REMIND_OPTIONS = [
     { value: 1, label: "1ч" },
@@ -37,6 +38,15 @@ export default function BookingPage({ telegramId }: Props) {
     setSelectedSlot(null);
     getSlots(selectedDate).then(setSlots);
   }, [selectedDate]);
+
+  // Auto-scroll to book button when slot is selected
+  useEffect(() => {
+    if (selectedSlot && bookBtnRef.current) {
+      setTimeout(() => {
+        bookBtnRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 100);
+    }
+  }, [selectedSlot]);
 
   const handleBook = async () => {
     if (!selectedService || !selectedSlot) return;
@@ -78,7 +88,7 @@ export default function BookingPage({ telegramId }: Props) {
           >
             <div className="name">{s.name}</div>
             <div className="meta">
-              {s.duration_minutes} мин · {s.price} ₽
+              {s.duration_minutes} мин · {s.price} BYN
             </div>
           </div>
         ))}
@@ -125,7 +135,7 @@ export default function BookingPage({ telegramId }: Props) {
 
       {/* Кнопка */}
       {selectedSlot && (
-        <button className="btn" onClick={handleBook} disabled={loading}>
+        <button ref={bookBtnRef} className="btn" onClick={handleBook} disabled={loading}>
           {loading ? "Записываем..." : `Записаться на ${selectedSlot.start_time.slice(0, 5)}`}
         </button>
       )}

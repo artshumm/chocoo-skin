@@ -30,8 +30,11 @@ async def create_booking(data: BookingCreate, db: AsyncSession = Depends(get_db)
     if not service or not service.is_active:
         raise HTTPException(status_code=404, detail="Услуга не найдена")
 
-    # Проверяем слот
-    slot = await db.get(Slot, data.slot_id)
+    # Проверяем слот (с блокировкой строки для предотвращения race condition)
+    result = await db.execute(
+        select(Slot).where(Slot.id == data.slot_id).with_for_update()
+    )
+    slot = result.scalar_one_or_none()
     if not slot:
         raise HTTPException(status_code=404, detail="Слот не найден")
     if slot.status != SlotStatus.available:

@@ -28,7 +28,7 @@ function shiftMonth(month: string, delta: number): string {
 }
 
 function formatMoney(n: number): string {
-  return n.toLocaleString("ru-RU") + " \u20BD";
+  return n.toLocaleString("ru-RU") + " BYN";
 }
 
 function todayStr(): string {
