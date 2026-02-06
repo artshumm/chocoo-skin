@@ -28,7 +28,7 @@ export default function AdminPage({ telegramId }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
 
   const loadSlots = async (date: string) => {
     try {
@@ -84,9 +84,9 @@ export default function AdminPage({ telegramId }: Props) {
   };
 
   const handleSlotToggle = async (slot: Slot) => {
-    if (slot.status === "booked" || togglingId !== null) return;
+    if (slot.status === "booked" || togglingIds.has(slot.id)) return;
     const newStatus = slot.status === "available" ? "blocked" : "available";
-    setTogglingId(slot.id);
+    setTogglingIds((prev) => new Set(prev).add(slot.id));
     setSlots((prev) => prev.map((s) => (s.id === slot.id ? { ...s, status: newStatus } : s)));
     try {
       await updateSlot(slot.id, newStatus, telegramId);
@@ -94,7 +94,7 @@ export default function AdminPage({ telegramId }: Props) {
       setSlots((prev) => prev.map((s) => (s.id === slot.id ? { ...s, status: slot.status } : s)));
       setError(e instanceof Error ? e.message : "Ошибка");
     } finally {
-      setTogglingId(null);
+      setTogglingIds((prev) => { const next = new Set(prev); next.delete(slot.id); return next; });
     }
   };
 
