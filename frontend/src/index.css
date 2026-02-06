@@ -180,6 +180,13 @@ body {
 .modal-content { background: var(--tg-bg); border-radius: 16px; padding: 24px 20px; width: 100%; max-width: 400px; max-height: 90vh; overflow-y: auto; }
 .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; text-align: center; }
 
+/* Booking Detail Modal */
+.detail-section { padding: 8px 0; border-bottom: 1px solid var(--tg-secondary-bg); }
+.detail-section:last-of-type { border-bottom: none; }
+.detail-label { font-size: 12px; color: var(--tg-hint); margin-bottom: 2px; }
+.detail-value { font-size: 15px; }
+.detail-value a { color: var(--tg-link); text-decoration: none; }
+
 /* CMS / Admin Settings */
 .cms-section { background: var(--tg-secondary-bg); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
 .cms-section-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; }

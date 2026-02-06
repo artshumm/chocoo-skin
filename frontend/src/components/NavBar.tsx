@@ -17,7 +17,7 @@ export default function NavBar({ isAdmin }: Props) {
       </NavLink>
       <NavLink to="/my" className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
         <span className="nav-icon">&#128203;</span>
-        Мои записи
+        {isAdmin ? "Все записи" : "Мои записи"}
       </NavLink>
       <NavLink to="/profile" className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
         <span className="nav-icon">&#128100;</span>

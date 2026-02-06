@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
@@ -270,21 +270,28 @@ async def admin_cancel_booking(
 
 @router.get("/all", response_model=list[BookingResponse])
 async def get_all_bookings(
+    filter_date: date | None = Query(None, alias="date"),
+    status: str | None = Query(None, pattern="^(confirmed|cancelled|completed|pending)$"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     _admin: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Все записи — для админа (с пагинацией)."""
-    result = await db.execute(
+    """Все записи — для админа (с фильтрами и пагинацией)."""
+    query = (
         select(Booking)
+        .join(Slot)
         .options(
             selectinload(Booking.client),
             selectinload(Booking.service),
             selectinload(Booking.slot),
         )
-        .order_by(Booking.created_at.desc())
-        .offset(skip)
-        .limit(limit)
     )
+    if filter_date is not None:
+        query = query.where(Slot.date == filter_date)
+    if status is not None:
+        query = query.where(Booking.status == status)
+
+    query = query.order_by(Booking.created_at.desc()).offset(skip).limit(limit)
+    result = await db.execute(query)
     return result.scalars().all()

@@ -31,7 +31,22 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
-// Salon
+// --- Stale-while-revalidate cache ---
+function cachedGet<T>(path: string, cacheKey: string): { cached: T | null; fresh: Promise<T> } {
+  const raw = localStorage.getItem(cacheKey);
+  const cached = raw ? (JSON.parse(raw) as T) : null;
+  const fresh = request<T>(path).then((data) => {
+    localStorage.setItem(cacheKey, JSON.stringify(data));
+    return data;
+  });
+  return { cached, fresh };
+}
+
+// Salon (cached for instant load)
+export const getSalonInfoCached = () => cachedGet<SalonInfo>("/api/salon", "cache_salon");
+export const getFaqCached = () => cachedGet<FaqItem[]>("/api/faq", "cache_faq");
+
+// Salon (direct — for admin CMS)
 export const getSalonInfo = () => request<SalonInfo>("/api/salon");
 export const getFaq = () => request<FaqItem[]>("/api/faq");
 
@@ -100,8 +115,13 @@ export const updateSlot = (slotId: number, status: string) =>
     body: JSON.stringify({ status }),
   });
 
-export const getAllBookings = () =>
-  request<Booking[]>("/api/bookings/all");
+export const getAllBookings = (date?: string, status?: string) => {
+  const params = new URLSearchParams();
+  if (date) params.set("date", date);
+  if (status) params.set("status", status);
+  const qs = params.toString();
+  return request<Booking[]>(`/api/bookings/all${qs ? `?${qs}` : ""}`);
+};
 
 export const adminCancelBooking = (bookingId: number) =>
   request<Booking>(`/api/bookings/${bookingId}/admin-cancel`, {

@@ -1,47 +1,48 @@
 import { useEffect, useState } from "react";
-import { getSalonInfo, getFaq } from "../api/client";
+import { getSalonInfoCached, getFaqCached } from "../api/client";
 import type { SalonInfo, FaqItem } from "../types";
 
 export default function HomePage() {
-  const [salon, setSalon] = useState<SalonInfo | null>(null);
-  const [faq, setFaq] = useState<FaqItem[]>([]);
+  // Stale-while-revalidate: сначала из localStorage, потом обновляем из сети
+  const [salonResult] = useState(() => getSalonInfoCached());
+  const [faqResult] = useState(() => getFaqCached());
+
+  const [salon, setSalon] = useState<SalonInfo | null>(salonResult.cached);
+  const [faq, setFaq] = useState<FaqItem[]>(faqResult.cached ?? []);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    getSalonInfo()
-      .then(setSalon)
-      .catch(() => setError("Не удалось загрузить информацию о салоне"));
-    getFaq()
-      .then(setFaq)
-      .catch(() => {});
-  }, []);
+    salonResult.fresh.then(setSalon).catch(() => {
+      if (!salon) setError("Не удалось загрузить информацию о салоне");
+    });
+    faqResult.fresh.then(setFaq).catch(() => {});
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (error) return <div className="error-msg">{error}</div>;
-  if (!salon) return <div className="loading">Загрузка...</div>;
+  if (error && !salon) return <div className="error-msg">{error}</div>;
 
   return (
     <div className="page">
       <div className="salon-card">
-        <h1>{salon.name}</h1>
-        {salon.description && <p className="description">{salon.description}</p>}
-        {salon.address && (
+        <h1>{salon?.name ?? "Chocoo Skin"}</h1>
+        {salon?.description && <p className="description">{salon.description}</p>}
+        {salon?.address && (
           <div className="info-row">
             <span className="label">Адрес:</span> {salon.address}
           </div>
         )}
-        {salon.phone && (
+        {salon?.phone && (
           <div className="info-row">
             <span className="label">Телефон:</span>{" "}
             <a href={`tel:${salon.phone}`}>{salon.phone}</a>
           </div>
         )}
-        {salon.working_hours_text && (
+        {salon?.working_hours_text && (
           <div className="info-row">
             <span className="label">Часы работы:</span> {salon.working_hours_text}
           </div>
         )}
-        {salon.instagram && (
+        {salon?.instagram && (
           <div className="info-row">
             <span className="label">Instagram:</span>{" "}
             <a href={salon.instagram} target="_blank" rel="noopener noreferrer">@chocoo.skin</a>
