@@ -17,6 +17,7 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+  const [slotsLoading, setSlotsLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -49,9 +50,11 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
   useEffect(() => {
     if (!selectedDate) return;
     setSelectedSlot(null);
+    setSlotsLoading(true);
     getSlots(selectedDate)
       .then(setSlots)
-      .catch(() => setError("Не удалось загрузить слоты"));
+      .catch(() => setError("Не удалось загрузить слоты"))
+      .finally(() => setSlotsLoading(false));
   }, [selectedDate]);
 
   // Auto-scroll to book button when slot is selected
@@ -164,11 +167,15 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
       {selectedDate && (
         <>
           <div className="section-title">3. Выберите время</div>
-          <TimeGrid
-            slots={slots}
-            selectedSlotId={selectedSlot?.id ?? null}
-            onSelect={setSelectedSlot}
-          />
+          {slotsLoading ? (
+            <div className="loading">Загрузка слотов...</div>
+          ) : (
+            <TimeGrid
+              slots={slots}
+              selectedSlotId={selectedSlot?.id ?? null}
+              onSelect={setSelectedSlot}
+            />
+          )}
         </>
       )}
 

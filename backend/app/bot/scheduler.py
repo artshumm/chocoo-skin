@@ -146,28 +146,40 @@ async def _check_morning_summary() -> None:
         bookings = result.scalars().all()
 
     if not bookings:
-        text = f"☀️ Доброе утро!\n\nНа сегодня ({today_str}) записей нет."
+        messages = [f"☀️ Доброе утро!\n\nНа сегодня ({today_str}) записей нет."]
     else:
-        lines = [f"☀️ Доброе утро!\n\nЗаписи на сегодня ({today_str}):\n"]
+        header = f"☀️ Доброе утро!\n\nЗаписи на сегодня ({today_str}):\n"
+        footer = f"\nВсего: {len(bookings)}"
+        booking_lines = []
         for i, b in enumerate(bookings, 1):
             client_name = (
                 b.client.first_name or b.client.username or str(b.client.telegram_id)
             )
-            lines.append(
+            booking_lines.append(
                 f"{i}. {b.slot.start_time.strftime('%H:%M')} — "
                 f"{client_name}, {b.service.name}"
             )
-        lines.append(f"\nВсего: {len(bookings)}")
-        text = "\n".join(lines)
+
+        # Telegram limit: 4096 chars. Разбиваем на части если слишком длинное.
+        messages = []
+        current = header
+        for line in booking_lines:
+            if len(current) + len(line) + len(footer) + 1 > 4000:
+                messages.append(current.rstrip())
+                current = ""
+            current += line + "\n"
+        current += footer
+        messages.append(current)
 
     for admin_id in settings.admin_id_list:
-        try:
-            await asyncio.wait_for(
-                bot.send_message(chat_id=admin_id, text=text),
-                timeout=10.0,
-            )
-        except Exception as e:
-            logger.warning("Failed to send morning summary to admin %s: %s", admin_id, e)
+        for msg in messages:
+            try:
+                await asyncio.wait_for(
+                    bot.send_message(chat_id=admin_id, text=msg),
+                    timeout=10.0,
+                )
+            except Exception as e:
+                logger.warning("Failed to send morning summary to admin %s: %s", admin_id, e)
 
     # Ставим флаг ПОСЛЕ отправки, чтобы retry был возможен при ошибке
     _last_summary_date = today_str
