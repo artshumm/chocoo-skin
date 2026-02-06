@@ -46,12 +46,15 @@ export const createBooking = (telegram_id: number, service_id: number, slot_id: 
     body: JSON.stringify({ telegram_id, service_id, slot_id, remind_before_hours }),
   });
 
-export const getMyBookings = (telegram_id: number) =>
-  request<Booking[]>(`/api/bookings/my?telegram_id=${telegram_id}`);
+export const getMyBookings = (telegramId: number) =>
+  request<Booking[]>("/api/bookings/my", {
+    headers: { "X-Telegram-Id": String(telegramId) },
+  });
 
-export const cancelBooking = (booking_id: number, telegram_id: number) =>
-  request<Booking>(`/api/bookings/${booking_id}/cancel?telegram_id=${telegram_id}`, {
+export const cancelBooking = (bookingId: number, telegramId: number) =>
+  request<Booking>(`/api/bookings/${bookingId}/cancel`, {
     method: "PATCH",
+    headers: { "X-Telegram-Id": String(telegramId) },
   });
 
 // Admin

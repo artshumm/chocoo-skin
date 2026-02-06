@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -30,6 +30,10 @@ async def create_booking(data: BookingCreate, db: AsyncSession = Depends(get_db)
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден. Сначала вызовите /api/users/auth")
+
+    # Проверяем профиль (согласие + телефон)
+    if not user.consent_given or not user.phone:
+        raise HTTPException(status_code=400, detail="Необходимо заполнить профиль перед записью")
 
     # Проверяем услугу
     service = await db.get(Service, data.service_id)
@@ -95,14 +99,14 @@ async def create_booking(data: BookingCreate, db: AsyncSession = Depends(get_db)
 
 @router.get("/my", response_model=list[BookingResponse])
 async def get_my_bookings(
-    telegram_id: int = Query(..., description="Telegram ID клиента"),
+    x_telegram_id: int = Header(...),
     db: AsyncSession = Depends(get_db),
 ):
     """Записи клиента."""
     result = await db.execute(
         select(Booking)
         .join(User)
-        .where(User.telegram_id == telegram_id)
+        .where(User.telegram_id == x_telegram_id)
         .options(
             selectinload(Booking.client),
             selectinload(Booking.service),
@@ -116,14 +120,14 @@ async def get_my_bookings(
 @router.patch("/{booking_id}/cancel", response_model=BookingResponse)
 async def cancel_booking(
     booking_id: int,
-    telegram_id: int = Query(..., description="Telegram ID клиента"),
+    x_telegram_id: int = Header(...),
     db: AsyncSession = Depends(get_db),
 ):
     """Клиент отменяет свою запись. Минимум за 10 часов до начала."""
     result = await db.execute(
         select(Booking)
         .join(User)
-        .where(Booking.id == booking_id, User.telegram_id == telegram_id)
+        .where(Booking.id == booking_id, User.telegram_id == x_telegram_id)
         .options(
             selectinload(Booking.client),
             selectinload(Booking.service),

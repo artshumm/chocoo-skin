@@ -42,26 +42,13 @@ export default function App() {
 
   if (loading) return <div className="loading">Загрузка...</div>;
 
-  // Онбординг: профиль не заполнен
-  const needsOnboarding = user && (!user.consent_given || !user.phone);
-
-  if (needsOnboarding) {
-    return (
-      <ProfilePage
-        user={user}
-        onSave={setUser}
-        isOnboarding={true}
-      />
-    );
-  }
-
   const isAdmin = user?.role === "admin";
 
   return (
     <>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/booking" element={<BookingPage telegramId={user?.telegram_id ?? 0} />} />
+        <Route path="/booking" element={<BookingPage user={user!} onUserUpdate={setUser} />} />
         <Route path="/my" element={<MyBookingsPage telegramId={user?.telegram_id ?? 0} />} />
         <Route
           path="/profile"

@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { getServices, getSlots, createBooking } from "../api/client";
-import type { Service, Slot } from "../types";
+import { getServices, getSlots, createBooking, updateProfile } from "../api/client";
+import type { Service, Slot, User } from "../types";
 import Calendar from "../components/Calendar";
 import TimeGrid from "../components/TimeGrid";
 
 interface Props {
-  telegramId: number;
+  user: User;
+  onUserUpdate: (u: User) => void;
 }
 
-export default function BookingPage({ telegramId }: Props) {
+const PHONE_PREFIX = "+375";
+
+export default function BookingPage({ user, onUserUpdate }: Props) {
+  const telegramId = user.telegram_id;
   const [services, setServices] = useState<Service[]>([]);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -19,6 +23,14 @@ export default function BookingPage({ telegramId }: Props) {
   const [success, setSuccess] = useState("");
   const [remindHours, setRemindHours] = useState(2);
   const bookBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Registration modal state
+  const [showRegModal, setShowRegModal] = useState(false);
+  const [regName, setRegName] = useState(user.first_name || "");
+  const [regPhone, setRegPhone] = useState(user.phone || PHONE_PREFIX);
+  const [regConsent, setRegConsent] = useState(user.consent_given);
+  const [regLoading, setRegLoading] = useState(false);
+  const [regError, setRegError] = useState("");
 
   const REMIND_OPTIONS = [
     { value: 1, label: "1ч" },
@@ -48,7 +60,7 @@ export default function BookingPage({ telegramId }: Props) {
     }
   }, [selectedSlot]);
 
-  const handleBook = async () => {
+  const doBook = async () => {
     if (!selectedService || !selectedSlot) return;
     setLoading(true);
     setError("");
@@ -64,6 +76,44 @@ export default function BookingPage({ telegramId }: Props) {
       setError(e instanceof Error ? e.message : "Ошибка записи");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const needsRegistration = !user.consent_given || !user.phone;
+
+  const handleBook = async () => {
+    if (!selectedService || !selectedSlot) return;
+    if (needsRegistration) {
+      setShowRegModal(true);
+      return;
+    }
+    await doBook();
+  };
+
+  const handlePhoneChange = (val: string) => {
+    if (!val.startsWith(PHONE_PREFIX)) {
+      val = PHONE_PREFIX + val.replace(/^\+?3?7?5?/, "");
+    }
+    const afterPrefix = val.slice(PHONE_PREFIX.length).replace(/\D/g, "");
+    setRegPhone(PHONE_PREFIX + afterPrefix.slice(0, 9));
+  };
+
+  const isPhoneValid = /^\+375\d{9}$/.test(regPhone);
+  const canSaveReg = regName.trim().length > 0 && isPhoneValid && regConsent;
+
+  const handleRegistrationComplete = async () => {
+    if (!canSaveReg) return;
+    setRegLoading(true);
+    setRegError("");
+    try {
+      const updated = await updateProfile(telegramId, regName.trim(), regPhone, true);
+      onUserUpdate(updated);
+      setShowRegModal(false);
+      await doBook();
+    } catch (e) {
+      setRegError(e instanceof Error ? e.message : "Ошибка сохранения");
+    } finally {
+      setRegLoading(false);
     }
   };
 
@@ -141,6 +191,64 @@ export default function BookingPage({ telegramId }: Props) {
         <button ref={bookBtnRef} className="btn" onClick={handleBook} disabled={loading}>
           {loading ? "Записываем..." : `Записаться на ${selectedSlot.start_time.slice(0, 5)}`}
         </button>
+      )}
+
+      {/* Модал регистрации */}
+      {showRegModal && (
+        <div className="modal-overlay" onClick={() => setShowRegModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-title">Для записи заполните данные</div>
+
+            {regError && <div className="error-msg">{regError}</div>}
+
+            <div className="profile-form">
+              <div>
+                <div className="profile-label">Имя</div>
+                <input
+                  className="profile-input"
+                  type="text"
+                  placeholder="Ваше имя"
+                  value={regName}
+                  onChange={(e) => setRegName(e.target.value)}
+                  maxLength={100}
+                />
+              </div>
+
+              <div>
+                <div className="profile-label">Телефон</div>
+                <input
+                  className="profile-input"
+                  type="tel"
+                  placeholder="+375XXXXXXXXX"
+                  value={regPhone}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  maxLength={13}
+                  inputMode="tel"
+                />
+                {regPhone.length > 4 && !isPhoneValid && (
+                  <div className="profile-hint">Формат: +375XXXXXXXXX (9 цифр после +375)</div>
+                )}
+              </div>
+
+              <label className="consent-label">
+                <input
+                  className="consent-checkbox"
+                  type="checkbox"
+                  checked={regConsent}
+                  onChange={(e) => setRegConsent(e.target.checked)}
+                />
+                <span>
+                  Я даю согласие на обработку персональных данных в целях оказания
+                  услуг и информирования о записи.
+                </span>
+              </label>
+
+              <button className="btn" onClick={handleRegistrationComplete} disabled={!canSaveReg || regLoading}>
+                {regLoading ? "Сохраняем..." : "Сохранить и записаться"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

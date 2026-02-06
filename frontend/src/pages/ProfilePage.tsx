@@ -93,8 +93,8 @@ export default function ProfilePage({ user, onSave, isOnboarding }: Props) {
             onChange={(e) => setConsent(e.target.checked)}
           />
           <span>
-            Я даю согласие на сбор и обработку моего имени, телефона и ника
-            в Telegram в целях записи в салон и отправки напоминаний о записи.
+            Я даю согласие на обработку персональных данных в целях оказания
+            услуг и информирования о записи.
           </span>
         </label>
 
