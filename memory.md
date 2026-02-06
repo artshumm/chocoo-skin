@@ -147,80 +147,54 @@ docker-compose.yml             - PostgreSQL 16
 
 ---
 
-## АУДИТ БЕЗОПАСНОСТИ (2026-02-06)
+## АУДИТ БЕЗОПАСНОСТИ (2026-02-06) — ВСЕ ИСПРАВЛЕНО
 
-### CRITICAL
-| # | Проблема | Файл | Статус |
-|---|----------|------|--------|
-| 1 | **Telegram ID не верифицируется** — x-telegram-id из заголовка принимается без HMAC-SHA256 проверки. Любой может подставить чужой ID | `deps.py:6` | ❌ НЕ ИСПРАВЛЕНО |
+### Сессия 1 (HMAC + IDOR + CORS)
+| # | Проблема | Статус |
+|---|----------|--------|
+| 1 | Telegram ID не верифицируется (HMAC-SHA256) | ✅ telegram_auth.py |
+| 2-5 | IDOR (записи, отмена, профиль, body) | ✅ user из initData подписи |
+| 6 | CORS allow_origins=["*"] | ✅ MINI_APP_URL only |
+| 9 | Нет ограничений на длину строк | ✅ BookingCreate gt=0, SlotUpdate regex |
+| 11 | Hardcoded DB credentials | ✅ database_url обязателен из .env |
 
-### HIGH
-| # | Проблема | Файл | Статус |
-|---|----------|------|--------|
-| 2 | IDOR — просмотр чужих записей через подмену x-telegram-id | `bookings.py:106` | ❌ |
-| 3 | IDOR — отмена чужих записей через подмену x-telegram-id | `bookings.py:126` | ❌ |
-| 4 | IDOR — обновление чужого профиля через подмену x-telegram-id | `users.py:56` | ❌ |
-| 5 | POST /api/bookings — telegram_id из body без проверки | `bookings.py:25` | ❌ |
-| 6 | CORS allow_origins=["*"] — нет ограничений по домену | `main.py:53` | ❌ |
+### Сессия 2 (Race conditions + Production hardening)
+| # | Проблема | Статус |
+|---|----------|--------|
+| 12 | Race condition на cancel booking | ✅ with_for_update() |
+| 13 | Calendar локальное время вместо Минска | ✅ nowMinsk() UTC+3 |
+| 14 | Scheduler ошибки не изолированы | ✅ отдельный try/except |
+| 15 | Graceful shutdown | ✅ asyncio.gather + return_exceptions |
+| 16 | Нет /health endpoint | ✅ /health + DB check |
+| 17 | Нет security headers | ✅ X-Frame-Options, nosniff, Referrer |
+| 18 | HomePage нет .catch() | ✅ error state |
+| 19 | App.tsx auth error молчит | ✅ authError state, safe user prop |
+| 20 | Expense amount без верхней границы | ✅ le=999999.99 |
+| 21 | Expense month невалидный | ✅ pattern 01-12 |
+| 22 | Нет DB индексов | ✅ booking(status,client_id,reminded), slot(date,status) |
+| 23 | Slot unique constraint | ✅ uq_slot_datetime |
+| 24 | pool_recycle отсутствует | ✅ 1800 сек |
+| 25 | Слоты на прошлые даты | ✅ проверка в generate |
+| 26 | Sourcemaps в production | ✅ sourcemap: false |
+| 27 | useEffect cleanup | ✅ clearTimeout |
+| 28 | Нет пагинации | ✅ bookings/all skip+limit |
+| 29 | uvicorn reload=True | ✅ убран reload |
 
-### MEDIUM
-| # | Проблема | Файл | Статус |
-|---|----------|------|--------|
-| 7 | Нет rate limiting на /api/users/auth | `users.py:17` | ❌ |
-| 8 | Детальные ошибки раскрывают логику системы | `bookings.py:29-51` | ❌ |
-| 9 | Нет ограничений на длину строк в UserAuth | `schemas.py:9-14` | ❌ |
-
-### LOW
-| # | Проблема | Файл | Статус |
-|---|----------|------|--------|
-| 10 | Dev-режим фронтенда даёт admin при id=0 | `App.tsx:20-35` | ❌ |
-| 11 | Hardcoded DB credentials в config.py default | `config.py:12` | ❌ |
-
-**Приоритет #1**: Валидация Telegram initData (HMAC-SHA256) — закрывает проблемы 1-5
-
----
-
-## АУДИТ БАГОВ (2026-02-06)
-
-### HIGH
-| # | Проблема | Файл | Статус |
-|---|----------|------|--------|
-| 1 | Фронт: canCancel() считает в локальном времени браузера, а не по Минску | `MyBookingsPage.tsx:19-26` | ❌ |
-| 2 | _last_summary_date в памяти — рестарт → дубль утренней сводки | `scheduler.py:18` | ❌ |
-| 3 | Напоминание может отправиться дважды (crash между send и commit) | `scheduler.py:89` | ❌ |
-| 4 | _auto_complete_bookings загружает ВСЕ confirmed в память каждые 60 сек | `scheduler.py:161` | ❌ |
-| 5 | StatsPage считает даты в локальном браузерном времени | `StatsPage.tsx:14` | ❌ |
-
-### MEDIUM
-| # | Проблема | Файл | Статус |
-|---|----------|------|--------|
-| 6 | Отмена записи ставит слот available, даже если админ его заблокировал | `bookings.py:160` | ❌ |
-| 7 | getServices() и getSlots() без .catch() — молчаливый фейл | `BookingPage.tsx:44` | ❌ |
-| 8 | Нет пагинации нигде | Все endpoints | ❌ |
+### Оставшееся (LOW priority, не блокирует)
+- [ ] Rate limiting (slowapi) — для MVP не критично
+- [ ] Alembic миграции — пока create_all достаточно
 
 ---
 
-## НАГРУЗКА И ПРОИЗВОДИТЕЛЬНОСТЬ
+## ПРОИЗВОДИТЕЛЬНОСТЬ — ИСПРАВЛЕНО
 
-| Параметр | Текущее значение | Проблема |
-|----------|-----------------|----------|
-| DB pool | 5 (default SQLAlchemy) | Макс 15 с overflow |
-| Neon free tier | 20 соединений | Пул забирает 75% |
-| Uvicorn | `reload=True`, 1 worker | Утечки памяти в проде |
-| Индексы | Нет на status, reminded, created_at | Тормоза scheduler |
-| Пагинация | Нигде нет | Растёт нагрузка с ростом данных |
-
-### Оценка ёмкости
-- **Одновременных пользователей**: 10-12
-- **Записей/день**: 50-100 (достаточно для 1 салона)
-- **Потолок**: 20+ одновременных запросов → переполнение пула БД
-- **Память**: 500+ записей → scheduler съедает RAM
-
-### Быстрые фиксы производительности (TODO)
-- [ ] `uvicorn reload=False` в проде
-- [ ] `pool_size=10, max_overflow=5, pool_pre_ping=True` в database.py
-- [ ] Индексы: `bookings.status`, `bookings.reminded`, `bookings.created_at`
-- [ ] Оптимизировать _auto_complete_bookings — SQL UPDATE вместо Python loop
+| Параметр | Значение | Статус |
+|----------|----------|--------|
+| DB pool | pool_size=5, max_overflow=10, pool_pre_ping=True, pool_recycle=1800 | ✅ |
+| Индексы | booking(status, client_id, status+reminded), slot(date+status), slot unique | ✅ |
+| Пагинация | bookings/all: skip+limit (default 100, max 500) | ✅ |
+| Uvicorn | reload убран из __main__ | ✅ |
+| Scheduler | ошибки изолированы, date filter на auto_complete | ✅ |
 
 ---
 

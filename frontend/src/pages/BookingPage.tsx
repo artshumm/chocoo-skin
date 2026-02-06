@@ -57,9 +57,10 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
   // Auto-scroll to book button when slot is selected
   useEffect(() => {
     if (selectedSlot && bookBtnRef.current) {
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         bookBtnRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 100);
+      return () => clearTimeout(timer);
     }
   }, [selectedSlot]);
 

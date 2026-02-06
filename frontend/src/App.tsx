@@ -15,6 +15,7 @@ export default function App() {
   const { telegramId, initData } = useTelegram();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState("");
 
   useEffect(() => {
     // Устанавливаем initData для всех API запросов
@@ -23,11 +24,12 @@ export default function App() {
     // Авторизация через бэкенд (данные извлекаются из initData)
     authUser()
       .then(setUser)
-      .catch(console.error)
+      .catch(() => setAuthError("Ошибка авторизации. Перезагрузите приложение."))
       .finally(() => setLoading(false));
   }, [telegramId, initData]);
 
   if (loading) return <div className="loading">Загрузка...</div>;
+  if (authError) return <div className="error-msg">{authError}</div>;
 
   const isAdmin = user?.role === "admin";
 
@@ -35,7 +37,7 @@ export default function App() {
     <>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/booking" element={<BookingPage user={user!} onUserUpdate={setUser} />} />
+        <Route path="/booking" element={user ? <BookingPage user={user} onUserUpdate={setUser} /> : null} />
         <Route path="/my" element={<MyBookingsPage />} />
         <Route
           path="/profile"

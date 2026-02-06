@@ -32,12 +32,22 @@ async def run_scheduler() -> None:
 
     logger.info("Scheduler started")
     while True:
+        # Каждая задача изолирована — падение одной не блокирует остальные
         try:
             await _check_reminders()
+        except Exception as e:
+            logger.error("Scheduler _check_reminders error: %s", e)
+
+        try:
             await _check_morning_summary()
+        except Exception as e:
+            logger.error("Scheduler _check_morning_summary error: %s", e)
+
+        try:
             await _auto_complete_bookings()
         except Exception as e:
-            logger.error("Scheduler error: %s", e)
+            logger.error("Scheduler _auto_complete_bookings error: %s", e)
+
         await asyncio.sleep(60)
 
 

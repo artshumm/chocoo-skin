@@ -2,9 +2,12 @@ import asyncio
 import logging
 
 from aiogram import Dispatcher
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.bookings import router as bookings_router
 from app.api.expenses import router as expenses_router
@@ -16,7 +19,7 @@ from app.bot.bot_instance import bot
 from app.bot.handlers import router as bot_router
 from app.bot.scheduler import run_scheduler
 from app.core.config import settings
-from app.core.database import engine
+from app.core.database import engine, get_db
 from app.models.models import Base
 
 logging.basicConfig(level=logging.INFO)
@@ -42,11 +45,13 @@ async def lifespan(app: FastAPI):
     scheduler_task = asyncio.create_task(run_scheduler())
     yield
 
-    # Shutdown
+    # Graceful shutdown: ждём завершения задач
     scheduler_task.cancel()
     bot_task.cancel()
+    await asyncio.gather(scheduler_task, bot_task, return_exceptions=True)
     await bot.session.close()
     await engine.dispose()
+    logger.info("Shutdown complete")
 
 
 app = FastAPI(title="Chocoo Skin API", lifespan=lifespan)
@@ -72,12 +77,30 @@ app.include_router(bookings_router)
 app.include_router(expenses_router)
 
 
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
+
 @app.get("/")
 async def root():
     return {"status": "ok", "project": "Chocoo Skin"}
 
 
+@app.get("/health")
+async def health_check(db: AsyncSession = Depends(get_db)):
+    try:
+        await db.execute(text("SELECT 1"))
+        return {"status": "ok", "db": "connected"}
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "error", "db": "disconnected"})
+
+
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000)

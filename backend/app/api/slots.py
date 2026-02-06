@@ -53,6 +53,11 @@ async def generate_slots(
     db: AsyncSession = Depends(get_db),
 ):
     """Админ генерирует слоты на день (например, с 9:00 до 21:00 по 30 мин)."""
+    # Нельзя генерировать слоты на прошедшие даты
+    now_minsk = datetime.now(MINSK_TZ)
+    if data.date < now_minsk.date():
+        raise HTTPException(status_code=400, detail="Нельзя создавать слоты на прошедшие даты")
+
     # Проверим что слоты на эту дату ещё не созданы
     existing = await db.execute(select(Slot).where(Slot.date == data.date).limit(1))
     if existing.scalar_one_or_none():

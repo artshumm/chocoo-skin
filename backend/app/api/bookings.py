@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -138,6 +138,7 @@ async def cancel_booking(
 ):
     """Клиент отменяет свою запись. Минимум за 10 часов до начала."""
     telegram_id = tg_user["id"]
+    # with_for_update() предотвращает race condition при двойной отмене
     result = await db.execute(
         select(Booking)
         .join(User)
@@ -147,6 +148,7 @@ async def cancel_booking(
             selectinload(Booking.service),
             selectinload(Booking.slot),
         )
+        .with_for_update()
     )
     booking = result.scalar_one_or_none()
     if not booking:
@@ -154,6 +156,8 @@ async def cancel_booking(
 
     if booking.status == BookingStatus.cancelled:
         raise HTTPException(status_code=400, detail="Запись уже отменена")
+    if booking.status == BookingStatus.completed:
+        raise HTTPException(status_code=400, detail="Завершённую запись нельзя отменить")
 
     # Проверка: минимум 10 часов до начала записи
     now_minsk = datetime.now(MINSK_TZ).replace(tzinfo=None)
@@ -200,10 +204,12 @@ async def cancel_booking(
 
 @router.get("/all", response_model=list[BookingResponse])
 async def get_all_bookings(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     _admin: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Все записи — для админа."""
+    """Все записи — для админа (с пагинацией)."""
     result = await db.execute(
         select(Booking)
         .options(
@@ -212,5 +218,7 @@ async def get_all_bookings(
             selectinload(Booking.slot),
         )
         .order_by(Booking.created_at.desc())
+        .offset(skip)
+        .limit(limit)
     )
     return result.scalars().all()

@@ -103,8 +103,8 @@ class ExpenseCreate(BaseModel):
     """Админ добавляет расход."""
 
     name: str = Field(..., min_length=1, max_length=255)
-    amount: float = Field(..., gt=0)
-    month: str = Field(..., pattern=r"^\d{4}-\d{2}$")
+    amount: float = Field(..., gt=0, le=999999.99)
+    month: str = Field(..., pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
 
 
 class ExpenseResponse(BaseModel):

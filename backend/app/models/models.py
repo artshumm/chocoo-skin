@@ -8,11 +8,13 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
     Text,
     Time,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -108,6 +110,10 @@ class Service(Base):
 
 class Slot(Base):
     __tablename__ = "slots"
+    __table_args__ = (
+        Index("ix_slot_date_status", "date", "status"),
+        UniqueConstraint("date", "start_time", "end_time", name="uq_slot_datetime"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     date: Mapped[date] = mapped_column(Date, index=True)
@@ -125,13 +131,16 @@ class Slot(Base):
 
 class Booking(Base):
     __tablename__ = "bookings"
+    __table_args__ = (
+        Index("ix_booking_status_reminded", "status", "reminded"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    client_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    client_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     service_id: Mapped[int] = mapped_column(ForeignKey("services.id"))
     slot_id: Mapped[int] = mapped_column(ForeignKey("slots.id"), unique=True)
     status: Mapped[BookingStatus] = mapped_column(
-        Enum(BookingStatus), default=BookingStatus.confirmed
+        Enum(BookingStatus), default=BookingStatus.confirmed, index=True
     )
     remind_before_hours: Mapped[int] = mapped_column(Integer, server_default="2")
     reminded: Mapped[bool] = mapped_column(Boolean, server_default="false")

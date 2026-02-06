@@ -6,12 +6,18 @@ export default function HomePage() {
   const [salon, setSalon] = useState<SalonInfo | null>(null);
   const [faq, setFaq] = useState<FaqItem[]>([]);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    getSalonInfo().then(setSalon);
-    getFaq().then(setFaq);
+    getSalonInfo()
+      .then(setSalon)
+      .catch(() => setError("Не удалось загрузить информацию о салоне"));
+    getFaq()
+      .then(setFaq)
+      .catch(() => {});
   }, []);
 
+  if (error) return <div className="error-msg">{error}</div>;
   if (!salon) return <div className="loading">Загрузка...</div>;
 
   return (

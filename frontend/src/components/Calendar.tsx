@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { nowMinsk } from "../utils/timezone";
 
 interface Props {
   selectedDate: string | null;
@@ -8,9 +9,9 @@ interface Props {
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
 function formatDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
 
@@ -23,30 +24,30 @@ function getMonthName(month: number): string {
 }
 
 function getDaysInMonth(year: number, month: number): number {
-  return new Date(year, month + 1, 0).getDate();
+  return new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
 }
 
 /** Build list of months to display: current + next if 14-day window crosses boundary */
 function getMonthsToShow(today: Date, maxDate: Date): { year: number; month: number }[] {
   const months: { year: number; month: number }[] = [];
-  months.push({ year: today.getFullYear(), month: today.getMonth() });
+  months.push({ year: today.getUTCFullYear(), month: today.getUTCMonth() });
 
   if (
-    maxDate.getFullYear() > today.getFullYear() ||
-    maxDate.getMonth() > today.getMonth()
+    maxDate.getUTCFullYear() > today.getUTCFullYear() ||
+    maxDate.getUTCMonth() > today.getUTCMonth()
   ) {
-    months.push({ year: maxDate.getFullYear(), month: maxDate.getMonth() });
+    months.push({ year: maxDate.getUTCFullYear(), month: maxDate.getUTCMonth() });
   }
 
   return months;
 }
 
 export default function Calendar({ selectedDate, onSelect }: Props) {
-  const todayReal = new Date();
-  todayReal.setHours(0, 0, 0, 0);
+  // Используем время Минска (UTC+3), а не локальное время браузера
+  const mn = nowMinsk();
+  const todayReal = new Date(Date.UTC(mn.getUTCFullYear(), mn.getUTCMonth(), mn.getUTCDate()));
 
-  const maxDate = new Date(todayReal);
-  maxDate.setDate(todayReal.getDate() + 13); // 14 days: today + 13
+  const maxDate = new Date(todayReal.getTime() + 13 * 24 * 60 * 60 * 1000); // 14 days
 
   const monthsToShow = getMonthsToShow(todayReal, maxDate);
 
@@ -56,13 +57,13 @@ export default function Calendar({ selectedDate, onSelect }: Props) {
 
   const daysInMonth = getDaysInMonth(current.year, current.month);
   // Monday-based weekday of the 1st (0=Mon, 6=Sun)
-  const firstWeekday = (new Date(current.year, current.month, 1).getDay() + 6) % 7;
+  const firstWeekday = (new Date(Date.UTC(current.year, current.month, 1)).getUTCDay() + 6) % 7;
 
   const emptyCells = Array(firstWeekday).fill(null);
 
   const days: Date[] = [];
   for (let d = 1; d <= daysInMonth; d++) {
-    days.push(new Date(current.year, current.month, d));
+    days.push(new Date(Date.UTC(current.year, current.month, d)));
   }
 
   const todayStr = formatDate(todayReal);
@@ -98,7 +99,7 @@ export default function Calendar({ selectedDate, onSelect }: Props) {
           const dateStr = formatDate(d);
           const isToday = dateStr === todayStr;
           const isSelected = dateStr === selectedDate;
-          const isSunday = d.getDay() === 0;
+          const isSunday = d.getUTCDay() === 0;
           const isActive = dateStr >= todayStr && dateStr <= maxStr && !isSunday;
 
           return (
@@ -107,7 +108,7 @@ export default function Calendar({ selectedDate, onSelect }: Props) {
               className={`calendar-day${isSelected ? " selected" : ""}${isToday ? " today" : ""}${!isActive ? " disabled" : ""}`}
               onClick={() => isActive && onSelect(dateStr)}
             >
-              {d.getDate()}
+              {d.getUTCDate()}
             </div>
           );
         })}
