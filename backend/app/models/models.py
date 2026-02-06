@@ -69,6 +69,7 @@ class SalonInfo(Base):
     address: Mapped[str] = mapped_column(String(500), default="")
     phone: Mapped[str] = mapped_column(String(20), default="")
     working_hours_text: Mapped[str] = mapped_column(String(500), default="")
+    instagram: Mapped[str] = mapped_column(String(500), default="")
 
 
 # ── 3. FAQ ──
@@ -91,6 +92,7 @@ class Service(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255))
+    short_description: Mapped[str] = mapped_column(Text, default="")
     description: Mapped[str] = mapped_column(Text, default="")
     duration_minutes: Mapped[int] = mapped_column(Integer, default=30)
     price: Mapped[float] = mapped_column(Numeric(10, 2), default=0)

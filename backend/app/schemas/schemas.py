@@ -31,6 +31,7 @@ class UserResponse(BaseModel):
 class ServiceResponse(BaseModel):
     id: int
     name: str
+    short_description: str
     description: str
     duration_minutes: int
     price: float

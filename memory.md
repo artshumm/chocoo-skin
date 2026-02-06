@@ -128,13 +128,24 @@ docker-compose.yml             - PostgreSQL 16
 
 ---
 
+## ДЕПЛОЙ — ГОТОВ
+- **GitHub**: https://github.com/artshumm/chocoo-skin (публичный)
+- **Backend**: https://chocoo-skin-production.up.railway.app (FastAPI + aiogram + scheduler)
+- **Frontend**: https://harmonious-purpose-production-8564.up.railway.app (React + Vite)
+- **БД**: Neon PostgreSQL (без изменений)
+- Railway Project: loyal-flexibility
+- Backend Service ID: c4c71247-3fe6-4331-825b-ba13058b9c6d
+- Frontend Service ID: fe7dec50-592e-4dff-adfc-c7bbac43a224
+
 ## СЛЕДУЮЩЕЕ ДЕЙСТВИЕ
-Деплой: Vercel (frontend) + Railway (backend) для тестирования
+- Тестирование через Telegram Mini App
+- ALTER TABLE на Neon (remind_before_hours, reminded) если ещё не сделано
 
 ## ЧТО МОЖЕТ СЛОМАТЬСЯ
-1. .env путь: config.py ищет .env в корне проекта (3 уровня вверх от config.py)
+1. .env путь: config.py ищет .env в корне проекта (3 уровня вверх от config.py) — на Railway не проблема, pydantic_settings читает env vars
 2. ADMIN_IDS: 446746688,412062038 — настроены
 3. Neon: ssl=require обязателен в DATABASE_URL
 4. Bot singleton: bot_instance.py используется и в main.py, notifications.py, scheduler.py
 5. ALTER TABLE нужен на Neon для remind_before_hours и reminded (create_all не добавит к существующей таблице)
 6. Scheduler: перезапуск сервера в 8:00 → возможен дубль утренней сводки (OK для MVP)
+7. VITE_API_URL — build-time, при смене backend URL нужен redeploy frontend

@@ -19,6 +19,7 @@ async def get_salon_info(db: AsyncSession = Depends(get_db)):
             "address": "",
             "phone": "",
             "working_hours_text": "",
+            "instagram": "",
         }
     return {
         "name": salon.name,
@@ -26,6 +27,7 @@ async def get_salon_info(db: AsyncSession = Depends(get_db)):
         "address": salon.address,
         "phone": salon.phone,
         "working_hours_text": salon.working_hours_text,
+        "instagram": salon.instagram,
     }
 
 
