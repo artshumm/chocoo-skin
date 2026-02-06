@@ -1,4 +1,4 @@
-import type { Booking, Expense, FaqItem, SalonInfo, Service, Slot, User } from "../types";
+import type { Booking, Expense, FaqItem, SalonInfo, ScheduleTemplate, Service, Slot, User } from "../types";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -27,6 +27,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     const error = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(error.detail || "Ошибка сервера");
   }
+  if (res.status === 204) return undefined as T;
   return res.json();
 }
 
@@ -109,6 +110,70 @@ export const createExpense = (name: string, amount: number, month: string) =>
   });
 
 export const deleteExpense = (expenseId: number) =>
-  request<{ ok: boolean }>(`/api/expenses/${expenseId}`, {
+  request<void>(`/api/expenses/${expenseId}`, {
     method: "DELETE",
+  });
+
+// Admin CMS — Salon
+export const updateSalon = (data: Partial<SalonInfo>) =>
+  request<SalonInfo>("/api/salon", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+// Admin CMS — Services
+export const getAllServices = () => request<Service[]>("/api/services/all");
+
+export const createService = (data: {
+  name: string;
+  short_description?: string;
+  description?: string;
+  duration_minutes?: number;
+  price: number;
+  is_active?: boolean;
+}) =>
+  request<Service>("/api/services/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const updateService = (id: number, data: Partial<Service>) =>
+  request<Service>(`/api/services/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+export const deleteService = (id: number) =>
+  request<void>(`/api/services/${id}`, { method: "DELETE" });
+
+// Admin CMS — FAQ
+export const createFaq = (data: { question: string; answer: string; order_index?: number }) =>
+  request<FaqItem>("/api/faq", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const updateFaq = (id: number, data: Partial<FaqItem>) =>
+  request<FaqItem>(`/api/faq/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+export const deleteFaq = (id: number) =>
+  request<void>(`/api/faq/${id}`, { method: "DELETE" });
+
+export const reorderFaq = (ids: number[]) =>
+  request<FaqItem[]>("/api/faq/reorder", {
+    method: "PUT",
+    body: JSON.stringify({ ids }),
+  });
+
+// Admin CMS — Schedule Templates
+export const getScheduleTemplates = () =>
+  request<ScheduleTemplate[]>("/api/schedule-templates/");
+
+export const upsertScheduleTemplates = (templates: Omit<ScheduleTemplate, "id">[]) =>
+  request<ScheduleTemplate[]>("/api/schedule-templates/", {
+    method: "PUT",
+    body: JSON.stringify({ templates }),
   });

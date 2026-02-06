@@ -27,7 +27,43 @@ class UserProfileUpdate(BaseModel):
     consent_given: bool
 
 
+# ── Salon ──
+
+
+class SalonUpdate(BaseModel):
+    """Админ обновляет информацию о салоне."""
+
+    name: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = Field(None, max_length=2000)
+    address: str | None = Field(None, max_length=500)
+    phone: str | None = Field(None, max_length=20)
+    working_hours_text: str | None = Field(None, max_length=500)
+    instagram: str | None = Field(None, max_length=500)
+
+
 # ── Services ──
+
+
+class ServiceCreate(BaseModel):
+    """Админ создаёт услугу."""
+
+    name: str = Field(..., min_length=1, max_length=255)
+    short_description: str = Field(default="", max_length=500)
+    description: str = Field(default="", max_length=2000)
+    duration_minutes: int = Field(default=30, ge=10, le=480)
+    price: float = Field(..., gt=0, le=999999.99)
+    is_active: bool = True
+
+
+class ServiceUpdate(BaseModel):
+    """Админ обновляет услугу (partial)."""
+
+    name: str | None = Field(None, min_length=1, max_length=255)
+    short_description: str | None = Field(None, max_length=500)
+    description: str | None = Field(None, max_length=2000)
+    duration_minutes: int | None = Field(None, ge=10, le=480)
+    price: float | None = Field(None, gt=0, le=999999.99)
+    is_active: bool | None = None
 
 
 class ServiceResponse(BaseModel):
@@ -102,6 +138,40 @@ class BookingResponse(BaseModel):
     slot: SlotResponse
 
     model_config = {"from_attributes": True}
+
+
+# ── FAQ ──
+
+
+class FaqResponse(BaseModel):
+    id: int
+    question: str
+    answer: str
+    order_index: int
+
+    model_config = {"from_attributes": True}
+
+
+class FaqCreate(BaseModel):
+    """Админ добавляет FAQ."""
+
+    question: str = Field(..., min_length=1, max_length=500)
+    answer: str = Field(..., min_length=1, max_length=2000)
+    order_index: int = Field(default=0, ge=0)
+
+
+class FaqUpdate(BaseModel):
+    """Админ обновляет FAQ (partial)."""
+
+    question: str | None = Field(None, min_length=1, max_length=500)
+    answer: str | None = Field(None, min_length=1, max_length=2000)
+    order_index: int | None = Field(None, ge=0)
+
+
+class FaqReorder(BaseModel):
+    """Массовое изменение порядка FAQ."""
+
+    ids: list[int] = Field(..., min_length=1, max_length=100)
 
 
 # ── Expenses ──

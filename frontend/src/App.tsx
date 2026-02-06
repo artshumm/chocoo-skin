@@ -10,6 +10,7 @@ import MyBookingsPage from "./pages/MyBookingsPage";
 import ProfilePage from "./pages/ProfilePage";
 import AdminPage from "./pages/AdminPage";
 import StatsPage from "./pages/StatsPage";
+import AdminSettingsPage from "./pages/AdminSettingsPage";
 
 export default function App() {
   const { telegramId, initData } = useTelegram();
@@ -45,6 +46,7 @@ export default function App() {
         />
         {isAdmin && <Route path="/admin" element={<AdminPage />} />}
         {isAdmin && <Route path="/stats" element={<StatsPage />} />}
+        {isAdmin && <Route path="/settings" element={<AdminSettingsPage />} />}
       </Routes>
       <NavBar isAdmin={isAdmin} />
     </>

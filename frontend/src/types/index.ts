@@ -51,6 +51,16 @@ export interface FaqItem {
   id: number;
   question: string;
   answer: string;
+  order_index: number;
+}
+
+export interface ScheduleTemplate {
+  id: number;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  interval_minutes: number;
+  is_active: boolean;
 }
 
 export interface Expense {

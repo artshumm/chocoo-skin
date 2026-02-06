@@ -35,6 +35,12 @@ export default function NavBar({ isAdmin }: Props) {
           Стат.
         </NavLink>
       )}
+      {isAdmin && (
+        <NavLink to="/settings" className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
+          <span className="nav-icon">&#128295;</span>
+          CMS
+        </NavLink>
+      )}
     </nav>
   );
 }
