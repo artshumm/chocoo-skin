@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -56,14 +56,14 @@ async def auth_user(data: UserAuth, db: AsyncSession = Depends(get_db)):
 @router.patch("/profile", response_model=UserResponse)
 async def update_profile(
     data: UserProfileUpdate,
-    telegram_id: int = Query(...),
+    x_telegram_id: int = Header(...),
     db: AsyncSession = Depends(get_db),
 ):
     """Клиент обновляет имя, телефон и согласие на обработку ПД."""
     if not data.consent_given:
         raise HTTPException(status_code=400, detail="Необходимо дать согласие на обработку персональных данных")
 
-    result = await db.execute(select(User).where(User.telegram_id == telegram_id))
+    result = await db.execute(select(User).where(User.telegram_id == x_telegram_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")

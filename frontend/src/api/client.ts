@@ -26,8 +26,9 @@ export const authUser = (telegram_id: number, username?: string, first_name?: st
   });
 
 export const updateProfile = (telegram_id: number, first_name: string, phone: string, consent_given: boolean) =>
-  request<User>(`/api/users/profile?telegram_id=${telegram_id}`, {
+  request<User>("/api/users/profile", {
     method: "PATCH",
+    headers: { "Content-Type": "application/json", "X-Telegram-Id": String(telegram_id) },
     body: JSON.stringify({ first_name, phone, consent_given }),
   });
 
