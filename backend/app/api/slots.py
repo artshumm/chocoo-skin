@@ -113,8 +113,7 @@ async def update_slot(
     if data.status == "available":
         now_minsk = datetime.now(MINSK_TZ)
         if slot.date == now_minsk.date():
-            cutoff = (now_minsk + timedelta(minutes=SLOT_CUTOFF_MINUTES)).time()
-            if slot.start_time < cutoff:
+            if slot.start_time <= now_minsk.time():
                 raise HTTPException(
                     status_code=400,
                     detail="Нельзя открыть слот, время которого уже прошло",
