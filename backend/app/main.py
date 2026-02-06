@@ -4,7 +4,7 @@ import logging
 from aiogram import Dispatcher
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZIPMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from sqlalchemy import text
@@ -70,7 +70,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
-app.add_middleware(GZIPMiddleware, minimum_size=500)
+app.add_middleware(GZipMiddleware, minimum_size=500)
 app.include_router(salon_router)
 app.include_router(users_router)
 app.include_router(services_router)
