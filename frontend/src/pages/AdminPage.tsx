@@ -156,7 +156,7 @@ export default function AdminPage({ telegramId }: Props) {
                       {b.client.first_name || b.client.username || `ID ${b.client.telegram_id}`}
                     </span>
                     <span className={`booking-status ${b.status}`}>
-                      {b.status === "confirmed" ? "Подтверждена" : b.status}
+                      {b.status === "confirmed" ? "Подтверждена" : b.status === "completed" ? "Завершена" : b.status}
                     </span>
                   </div>
                   <div className="booking-datetime">

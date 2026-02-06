@@ -26,6 +26,7 @@ async def run_scheduler() -> None:
         try:
             await _check_reminders()
             await _check_morning_summary()
+            await _auto_complete_bookings()
         except Exception as e:
             logger.error("Scheduler error: %s", e)
         await asyncio.sleep(60)
@@ -147,3 +148,32 @@ async def _check_morning_summary() -> None:
             logger.warning("Failed to send morning summary to admin %s: %s", admin_id, e)
 
     logger.info("Morning summary sent for %s (%d bookings)", today_str, len(bookings))
+
+
+async def _auto_complete_bookings() -> None:
+    """Автозавершение записей через 30 мин после начала слота."""
+    now_minsk = datetime.now(MINSK_TZ)
+    threshold = now_minsk - timedelta(minutes=30)
+
+    async with async_session() as db:
+        result = await db.execute(
+            select(Booking)
+            .join(Slot)
+            .where(Booking.status == BookingStatus.confirmed)
+            .options(selectinload(Booking.slot))
+        )
+        bookings = result.scalars().all()
+
+        completed_count = 0
+        for booking in bookings:
+            slot = booking.slot
+            appointment_dt = datetime.combine(
+                slot.date, slot.start_time, tzinfo=MINSK_TZ
+            )
+            if appointment_dt <= threshold:
+                booking.status = BookingStatus.completed
+                completed_count += 1
+
+        if completed_count:
+            await db.commit()
+            logger.info("Auto-completed %d past bookings", completed_count)
