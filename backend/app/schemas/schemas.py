@@ -1,6 +1,6 @@
 from datetime import date, datetime, time
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # ── Users ──
@@ -64,6 +64,14 @@ class SlotCreate(BaseModel):
     end_hour: int = Field(default=21, ge=1, le=23)
     end_minute: int = Field(default=0, ge=0, le=59)
     interval_minutes: int = Field(default=30, ge=10, le=120)
+
+    @model_validator(mode="after")
+    def validate_time_range(self):
+        start = self.start_hour * 60 + self.start_minute
+        end = self.end_hour * 60 + self.end_minute
+        if start >= end:
+            raise ValueError("start_time must be before end_time")
+        return self
 
 
 class SlotUpdate(BaseModel):

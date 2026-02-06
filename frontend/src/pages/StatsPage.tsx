@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getAllBookings, getExpenses, createExpense, deleteExpense } from "../api/client";
 import type { Booking, Expense } from "../types";
 import { todayMinsk, daysAgoMinsk, currentMonthMinsk } from "../utils/timezone";
@@ -52,59 +52,62 @@ export default function StatsPage() {
       .catch(() => setExpenses([]));
   }, [selectedMonth]);
 
-  // Revenue calculations
-  const revenueBookings = bookings.filter(
-    (b) => b.status === "confirmed" || b.status === "completed"
+  // Revenue calculations — memoized to avoid O(n)*9 on each render
+  const revenueBookings = useMemo(
+    () => bookings.filter((b) => b.status === "confirmed" || b.status === "completed"),
+    [bookings],
   );
 
   const today = todayMinsk();
   const weekStart = daysAgoMinsk(6);
   const monthStart = daysAgoMinsk(29);
 
-  const todayBookings = revenueBookings.filter((b) => b.slot.date === today);
-  const todayRevenue = todayBookings.reduce((s, b) => s + b.service.price, 0);
-
-  const weekBookings = revenueBookings.filter(
-    (b) => b.slot.date >= weekStart && b.slot.date <= today
-  );
-  const weekRevenue = weekBookings.reduce((s, b) => s + b.service.price, 0);
-
-  const monthBookings = revenueBookings.filter(
-    (b) => b.slot.date >= monthStart && b.slot.date <= today
-  );
-  const monthRevenue = monthBookings.reduce((s, b) => s + b.service.price, 0);
+  const { todayBookings, todayRevenue, weekBookings, weekRevenue, monthBookings, monthRevenue } =
+    useMemo(() => {
+      const tb = revenueBookings.filter((b) => b.slot.date === today);
+      const wb = revenueBookings.filter((b) => b.slot.date >= weekStart && b.slot.date <= today);
+      const mb = revenueBookings.filter((b) => b.slot.date >= monthStart && b.slot.date <= today);
+      return {
+        todayBookings: tb,
+        todayRevenue: tb.reduce((s, b) => s + b.service.price, 0),
+        weekBookings: wb,
+        weekRevenue: wb.reduce((s, b) => s + b.service.price, 0),
+        monthBookings: mb,
+        monthRevenue: mb.reduce((s, b) => s + b.service.price, 0),
+      };
+    }, [revenueBookings, today, weekStart, monthStart]);
 
   // Client stats for selected month
-  const monthClientBookings = revenueBookings.filter(
-    (b) => b.slot.date.startsWith(selectedMonth)
-  );
-  const monthClientIds = new Set(monthClientBookings.map((b) => b.client.telegram_id));
-  const totalClients = monthClientIds.size;
+  const { totalClients, newClients, returningClients, monthCancelled, selectedMonthRevenue } =
+    useMemo(() => {
+      const monthClientBookings = revenueBookings.filter((b) => b.slot.date.startsWith(selectedMonth));
+      const monthClientIds = new Set(monthClientBookings.map((b) => b.client.telegram_id));
 
-  // New clients: first ever booking falls in this month
-  const firstBookingMonth = new Map<number, string>();
-  for (const b of revenueBookings) {
-    const m = b.slot.date.slice(0, 7);
-    const prev = firstBookingMonth.get(b.client.telegram_id);
-    if (!prev || m < prev) firstBookingMonth.set(b.client.telegram_id, m);
-  }
-  const newClients = [...monthClientIds].filter(
-    (id) => firstBookingMonth.get(id) === selectedMonth
-  ).length;
-  const returningClients = totalClients - newClients;
+      // First ever booking month per client
+      const firstBookingMonth = new Map<number, string>();
+      for (const b of revenueBookings) {
+        const m = b.slot.date.slice(0, 7);
+        const prev = firstBookingMonth.get(b.client.telegram_id);
+        if (!prev || m < prev) firstBookingMonth.set(b.client.telegram_id, m);
+      }
 
-  // Cancellations for selected month
-  const monthCancelled = bookings.filter(
-    (b) => b.status === "cancelled" && b.slot.date.startsWith(selectedMonth)
-  ).length;
+      const nc = [...monthClientIds].filter((id) => firstBookingMonth.get(id) === selectedMonth).length;
+      const cancelled = bookings.filter(
+        (b) => b.status === "cancelled" && b.slot.date.startsWith(selectedMonth),
+      ).length;
+      const smRevenue = monthClientBookings.reduce((s, b) => s + b.service.price, 0);
 
-  // Selected month revenue (for profit calc)
-  const selectedMonthRevenue = revenueBookings
-    .filter((b) => b.slot.date.startsWith(selectedMonth))
-    .reduce((s, b) => s + b.service.price, 0);
+      return {
+        totalClients: monthClientIds.size,
+        newClients: nc,
+        returningClients: monthClientIds.size - nc,
+        monthCancelled: cancelled,
+        selectedMonthRevenue: smRevenue,
+      };
+    }, [revenueBookings, bookings, selectedMonth]);
 
   // Expenses
-  const expensesTotal = expenses.reduce((s, e) => s + e.amount, 0);
+  const expensesTotal = useMemo(() => expenses.reduce((s, e) => s + e.amount, 0), [expenses]);
   const netProfit = selectedMonthRevenue - expensesTotal;
 
   const handleAddExpense = async () => {

@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select, and_, func, update
+from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload
 
 from app.bot.bot_instance import bot
@@ -32,21 +32,17 @@ async def run_scheduler() -> None:
 
     logger.info("Scheduler started")
     while True:
-        # Каждая задача изолирована — падение одной не блокирует остальные
-        try:
-            await _check_reminders()
-        except Exception as e:
-            logger.error("Scheduler _check_reminders error: %s", e)
-
-        try:
-            await _check_morning_summary()
-        except Exception as e:
-            logger.error("Scheduler _check_morning_summary error: %s", e)
-
-        try:
-            await _auto_complete_bookings()
-        except Exception as e:
-            logger.error("Scheduler _auto_complete_bookings error: %s", e)
+        # Задачи бегут параллельно — падение одной не блокирует остальные
+        results = await asyncio.gather(
+            _check_reminders(),
+            _check_morning_summary(),
+            _auto_complete_bookings(),
+            return_exceptions=True,
+        )
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                task_names = ["_check_reminders", "_check_morning_summary", "_auto_complete_bookings"]
+                logger.error("Scheduler %s error: %s", task_names[i], result)
 
         await asyncio.sleep(60)
 
@@ -179,9 +175,8 @@ async def _check_morning_summary() -> None:
 
 
 async def _auto_complete_bookings() -> None:
-    """Автозавершение записей через 30 мин после начала слота."""
+    """Автозавершение записей после окончания услуги (start_time + duration)."""
     now_minsk = datetime.now(MINSK_TZ)
-    threshold = now_minsk - timedelta(minutes=30)
 
     async with async_session() as db:
         # Фильтр по дате: только сегодня и ранее (не грузим будущие)
@@ -191,10 +186,13 @@ async def _auto_complete_bookings() -> None:
             .where(
                 and_(
                     Booking.status == BookingStatus.confirmed,
-                    Slot.date <= threshold.date(),
+                    Slot.date <= now_minsk.date(),
                 )
             )
-            .options(selectinload(Booking.slot))
+            .options(
+                selectinload(Booking.slot),
+                selectinload(Booking.service),
+            )
         )
         bookings = result.scalars().all()
 
@@ -204,7 +202,9 @@ async def _auto_complete_bookings() -> None:
             appointment_dt = datetime.combine(
                 slot.date, slot.start_time, tzinfo=MINSK_TZ
             )
-            if appointment_dt <= threshold:
+            # Завершаем после окончания услуги (start + duration)
+            end_dt = appointment_dt + timedelta(minutes=booking.service.duration_minutes)
+            if end_dt <= now_minsk:
                 booking.status = BookingStatus.completed
                 completed_count += 1
 

@@ -87,9 +87,11 @@ async def generate_slots(
         current_minutes = slot_end
 
     await db.commit()
-    for s in slots:
-        await db.refresh(s)
-    return slots
+    # Batch reload instead of N individual refreshes
+    result = await db.execute(
+        select(Slot).where(Slot.date == data.date).order_by(Slot.start_time)
+    )
+    return result.scalars().all()
 
 
 @router.patch("/{slot_id}", response_model=SlotResponse)
@@ -100,7 +102,10 @@ async def update_slot(
     db: AsyncSession = Depends(get_db),
 ):
     """Админ блокирует/разблокирует слот."""
-    slot = await db.get(Slot, slot_id)
+    result = await db.execute(
+        select(Slot).where(Slot.id == slot_id).with_for_update()
+    )
+    slot = result.scalar_one_or_none()
     if not slot:
         raise HTTPException(status_code=404, detail="Слот не найден")
 

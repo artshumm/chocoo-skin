@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { Slot } from "../types";
 
 interface Props {
@@ -12,7 +13,7 @@ function formatTime(t: string): string {
   return t.slice(0, 5);
 }
 
-export default function TimeGrid({ slots, selectedSlotId, onSelect, mode = "client" }: Props) {
+export default memo(function TimeGrid({ slots, selectedSlotId, onSelect, mode = "client" }: Props) {
   if (slots.length === 0) {
     return <div className="empty-state">Нет слотов на эту дату</div>;
   }
@@ -56,4 +57,4 @@ export default function TimeGrid({ slots, selectedSlotId, onSelect, mode = "clie
       })}
     </div>
   );
-}
+})
