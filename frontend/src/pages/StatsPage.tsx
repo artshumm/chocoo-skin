@@ -1,0 +1,247 @@
+import { useEffect, useState } from "react";
+import { getAllBookings, getExpenses, createExpense, deleteExpense } from "../api/client";
+import type { Booking, Expense } from "../types";
+
+interface Props {
+  telegramId: number;
+}
+
+const MONTH_NAMES = [
+  "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+  "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
+];
+
+function getCurrentMonth(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function formatMonthLabel(month: string): string {
+  const [y, m] = month.split("-");
+  return `${MONTH_NAMES[parseInt(m, 10) - 1]} ${y}`;
+}
+
+function shiftMonth(month: string, delta: number): string {
+  const [y, m] = month.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function formatMoney(n: number): string {
+  return n.toLocaleString("ru-RU") + " \u20BD";
+}
+
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function daysAgoStr(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export default function StatsPage({ telegramId }: Props) {
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth);
+
+  // Expense form
+  const [showForm, setShowForm] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newAmount, setNewAmount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  // Load bookings once
+  useEffect(() => {
+    setLoading(true);
+    getAllBookings(telegramId)
+      .then(setBookings)
+      .catch(() => setError("Ошибка загрузки записей"))
+      .finally(() => setLoading(false));
+  }, [telegramId]);
+
+  // Load expenses when month changes
+  useEffect(() => {
+    getExpenses(selectedMonth, telegramId)
+      .then(setExpenses)
+      .catch(() => setExpenses([]));
+  }, [selectedMonth, telegramId]);
+
+  // Revenue calculations
+  const revenueBookings = bookings.filter(
+    (b) => b.status === "confirmed" || b.status === "completed"
+  );
+
+  const today = todayStr();
+  const weekStart = daysAgoStr(6);
+  const monthStart = daysAgoStr(29);
+
+  const todayBookings = revenueBookings.filter((b) => b.slot.date === today);
+  const todayRevenue = todayBookings.reduce((s, b) => s + b.service.price, 0);
+
+  const weekBookings = revenueBookings.filter(
+    (b) => b.slot.date >= weekStart && b.slot.date <= today
+  );
+  const weekRevenue = weekBookings.reduce((s, b) => s + b.service.price, 0);
+
+  const monthBookings = revenueBookings.filter(
+    (b) => b.slot.date >= monthStart && b.slot.date <= today
+  );
+  const monthRevenue = monthBookings.reduce((s, b) => s + b.service.price, 0);
+
+  // Cancellations for selected month
+  const monthCancelled = bookings.filter(
+    (b) => b.status === "cancelled" && b.slot.date.startsWith(selectedMonth)
+  ).length;
+
+  // Selected month revenue (for profit calc)
+  const selectedMonthRevenue = revenueBookings
+    .filter((b) => b.slot.date.startsWith(selectedMonth))
+    .reduce((s, b) => s + b.service.price, 0);
+
+  // Expenses
+  const expensesTotal = expenses.reduce((s, e) => s + e.amount, 0);
+  const netProfit = selectedMonthRevenue - expensesTotal;
+
+  const handleAddExpense = async () => {
+    const amount = parseFloat(newAmount);
+    if (!newName.trim() || isNaN(amount) || amount <= 0) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      const created = await createExpense(newName.trim(), amount, selectedMonth, telegramId);
+      setExpenses((prev) => [created, ...prev]);
+      setNewName("");
+      setNewAmount("");
+      setShowForm(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteExpense = async (id: number) => {
+    try {
+      await deleteExpense(id, telegramId);
+      setExpenses((prev) => prev.filter((e) => e.id !== id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка");
+    }
+  };
+
+  if (loading) return <div className="loading">Загрузка...</div>;
+
+  return (
+    <div className="page">
+      <h2 className="section-title">Статистика</h2>
+
+      {error && <div className="error-msg">{error}</div>}
+
+      {/* Month navigation */}
+      <div className="month-nav">
+        <button onClick={() => setSelectedMonth(shiftMonth(selectedMonth, -1))}>&#8249;</button>
+        <span>{formatMonthLabel(selectedMonth)}</span>
+        <button onClick={() => setSelectedMonth(shiftMonth(selectedMonth, 1))}>&#8250;</button>
+      </div>
+
+      {/* Revenue cards */}
+      <div className="stats-cards">
+        <div className="stats-card">
+          <div className="stats-card-label">Сегодня</div>
+          <div className="stats-card-value">{formatMoney(todayRevenue)}</div>
+          <div className="stats-card-count">{todayBookings.length} зап.</div>
+        </div>
+        <div className="stats-card">
+          <div className="stats-card-label">Неделя</div>
+          <div className="stats-card-value">{formatMoney(weekRevenue)}</div>
+          <div className="stats-card-count">{weekBookings.length} зап.</div>
+        </div>
+        <div className="stats-card">
+          <div className="stats-card-label">Месяц</div>
+          <div className="stats-card-value">{formatMoney(monthRevenue)}</div>
+          <div className="stats-card-count">{monthBookings.length} зап.</div>
+        </div>
+      </div>
+
+      {/* Cancellations */}
+      {monthCancelled > 0 && (
+        <div className="stats-cancellations">
+          Отмены за {formatMonthLabel(selectedMonth)}: <strong>{monthCancelled}</strong>
+        </div>
+      )}
+
+      {/* Expenses section */}
+      <div className="section-title" style={{ marginTop: 20 }}>
+        Расходы за {formatMonthLabel(selectedMonth)}
+      </div>
+
+      {expenses.length === 0 && !showForm && (
+        <div className="empty-state" style={{ padding: "16px 0" }}>Расходов пока нет</div>
+      )}
+
+      {expenses.map((exp) => (
+        <div key={exp.id} className="expense-row">
+          <div className="expense-info">
+            <span className="expense-name">{exp.name}</span>
+            <span className="expense-amount">{formatMoney(exp.amount)}</span>
+          </div>
+          <button className="expense-delete" onClick={() => handleDeleteExpense(exp.id)}>
+            &#10005;
+          </button>
+        </div>
+      ))}
+
+      {expenses.length > 0 && (
+        <div className="expense-total">
+          Итого: <strong>{formatMoney(expensesTotal)}</strong>
+        </div>
+      )}
+
+      {showForm ? (
+        <div className="expense-form">
+          <input
+            className="expense-input"
+            type="text"
+            placeholder="Название"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+          />
+          <input
+            className="expense-input"
+            type="number"
+            placeholder="Сумма"
+            value={newAmount}
+            onChange={(e) => setNewAmount(e.target.value)}
+            inputMode="decimal"
+          />
+          <div className="expense-form-buttons">
+            <button className="btn btn-sm" onClick={handleAddExpense} disabled={submitting}>
+              {submitting ? "..." : "Сохранить"}
+            </button>
+            <button
+              className="btn btn-sm btn-outline"
+              onClick={() => { setShowForm(false); setNewName(""); setNewAmount(""); }}
+            >
+              Отмена
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button className="btn btn-outline" style={{ marginTop: 8 }} onClick={() => setShowForm(true)}>
+          + Добавить расход
+        </button>
+      )}
+
+      {/* Net profit */}
+      <div className={`stats-profit ${netProfit >= 0 ? "positive" : "negative"}`}>
+        <div className="stats-profit-label">Чистая прибыль за {formatMonthLabel(selectedMonth)}</div>
+        <div className="stats-profit-value">{formatMoney(netProfit)}</div>
+      </div>
+    </div>
+  );
+}
