@@ -1,13 +1,14 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_telegram_user
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.models import User, UserRole
-from app.schemas.schemas import UserAuth, UserProfileUpdate, UserResponse
+from app.schemas.schemas import UserProfileUpdate, UserResponse
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -15,22 +16,27 @@ MINSK_TZ = timezone(timedelta(hours=3))
 
 
 @router.post("/auth", response_model=UserResponse)
-async def auth_user(data: UserAuth, db: AsyncSession = Depends(get_db)):
-    """Регистрация или логин через Telegram ID. Возвращает пользователя."""
-    result = await db.execute(select(User).where(User.telegram_id == data.telegram_id))
+async def auth_user(
+    tg_user: dict = Depends(get_telegram_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Регистрация или логин. Данные берутся из валидированного initData."""
+    telegram_id = tg_user["id"]
+    username = tg_user.get("username")
+    first_name = tg_user.get("first_name")
+
+    result = await db.execute(select(User).where(User.telegram_id == telegram_id))
     user = result.scalar_one_or_none()
 
     if user:
-        # Обновляем данные если изменились
         changed = False
-        if data.username and user.username != data.username:
-            user.username = data.username
+        if username and user.username != username:
+            user.username = username
             changed = True
-        if data.first_name and user.first_name != data.first_name:
-            user.first_name = data.first_name
+        if first_name and user.first_name != first_name:
+            user.first_name = first_name
             changed = True
-        # Синхронизируем роль с ADMIN_IDS при каждом входе
-        expected_role = UserRole.admin if data.telegram_id in settings.admin_id_list else UserRole.client
+        expected_role = UserRole.admin if telegram_id in settings.admin_id_list else UserRole.client
         if user.role != expected_role:
             user.role = expected_role
             changed = True
@@ -39,12 +45,11 @@ async def auth_user(data: UserAuth, db: AsyncSession = Depends(get_db)):
             await db.refresh(user)
         return user
 
-    # Новый пользователь
-    role = UserRole.admin if data.telegram_id in settings.admin_id_list else UserRole.client
+    role = UserRole.admin if telegram_id in settings.admin_id_list else UserRole.client
     user = User(
-        telegram_id=data.telegram_id,
-        username=data.username,
-        first_name=data.first_name,
+        telegram_id=telegram_id,
+        username=username,
+        first_name=first_name,
         role=role,
     )
     db.add(user)
@@ -56,14 +61,15 @@ async def auth_user(data: UserAuth, db: AsyncSession = Depends(get_db)):
 @router.patch("/profile", response_model=UserResponse)
 async def update_profile(
     data: UserProfileUpdate,
-    x_telegram_id: int = Header(...),
+    tg_user: dict = Depends(get_telegram_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Клиент обновляет имя, телефон и согласие на обработку ПД."""
     if not data.consent_given:
         raise HTTPException(status_code=400, detail="Необходимо дать согласие на обработку персональных данных")
 
-    result = await db.execute(select(User).where(User.telegram_id == x_telegram_id))
+    telegram_id = tg_user["id"]
+    result = await db.execute(select(User).where(User.telegram_id == telegram_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")

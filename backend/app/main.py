@@ -50,11 +50,19 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Chocoo Skin API", lifespan=lifespan)
+
+# CORS: разрешаем только фронтенд из MINI_APP_URL + localhost для разработки
+_cors_origins: list[str] = []
+if settings.mini_app_url:
+    _cors_origins.append(settings.mini_app_url.rstrip("/"))
+if settings.skip_telegram_validation:
+    _cors_origins.extend(["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_cors_origins,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 app.include_router(salon_router)
 app.include_router(users_router)

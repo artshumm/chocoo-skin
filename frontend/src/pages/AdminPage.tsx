@@ -4,10 +4,6 @@ import type { Slot, Booking } from "../types";
 import Calendar from "../components/Calendar";
 import TimeGrid from "../components/TimeGrid";
 
-interface Props {
-  telegramId: number;
-}
-
 /** 0=Sun, 6=Sat. Парсим YYYY-MM-DD без timezone-сдвига */
 function getDayOfWeek(dateStr: string): number {
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -21,7 +17,7 @@ function getScheduleForDate(dateStr: string) {
   return { isSunday: false, label: "8:30-21:00", startHour: 8, startMinute: 30, endHour: 21, endMinute: 0 };
 }
 
-export default function AdminPage({ telegramId }: Props) {
+export default function AdminPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -32,7 +28,7 @@ export default function AdminPage({ telegramId }: Props) {
 
   const loadSlots = async (date: string) => {
     try {
-      const data = await getAllSlots(date, telegramId);
+      const data = await getAllSlots(date);
       setSlots(data);
     } catch {
       setSlots([]);
@@ -41,7 +37,7 @@ export default function AdminPage({ telegramId }: Props) {
 
   const loadBookings = async () => {
     try {
-      const data = await getAllBookings(telegramId);
+      const data = await getAllBookings();
       setBookings(data);
     } catch {
       setBookings([]);
@@ -68,7 +64,6 @@ export default function AdminPage({ telegramId }: Props) {
     try {
       await generateSlots(
         selectedDate,
-        telegramId,
         schedule.startHour,
         schedule.startMinute,
         schedule.endHour,
@@ -89,7 +84,7 @@ export default function AdminPage({ telegramId }: Props) {
     setTogglingIds((prev) => new Set(prev).add(slot.id));
     setSlots((prev) => prev.map((s) => (s.id === slot.id ? { ...s, status: newStatus } : s)));
     try {
-      await updateSlot(slot.id, newStatus, telegramId);
+      await updateSlot(slot.id, newStatus);
     } catch (e) {
       setSlots((prev) => prev.map((s) => (s.id === slot.id ? { ...s, status: slot.status } : s)));
       setError(e instanceof Error ? e.message : "Ошибка");

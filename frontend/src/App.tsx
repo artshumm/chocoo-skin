@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Routes, Route } from "react-router-dom";
 import { useTelegram } from "./hooks/useTelegram";
-import { authUser } from "./api/client";
+import { authUser, setInitData } from "./api/client";
 import type { User } from "./types";
 import NavBar from "./components/NavBar";
 import HomePage from "./pages/HomePage";
@@ -12,33 +12,20 @@ import AdminPage from "./pages/AdminPage";
 import StatsPage from "./pages/StatsPage";
 
 export default function App() {
-  const { telegramId, username, firstName } = useTelegram();
+  const { telegramId, initData } = useTelegram();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const id = telegramId || 0;
-    if (id === 0) {
-      // Не в Telegram — dev-режим с тестовым пользователем
-      setUser({
-        id: 0,
-        telegram_id: 0,
-        username: "dev",
-        first_name: "Developer",
-        phone: "+375000000000",
-        consent_given: true,
-        role: "admin",
-        created_at: new Date().toISOString(),
-      });
-      setLoading(false);
-      return;
-    }
+    // Устанавливаем initData для всех API запросов
+    setInitData(initData);
 
-    authUser(id, username, firstName)
+    // Авторизация через бэкенд (данные извлекаются из initData)
+    authUser()
       .then(setUser)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [telegramId, username, firstName]);
+  }, [telegramId, initData]);
 
   if (loading) return <div className="loading">Загрузка...</div>;
 
@@ -49,13 +36,13 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/booking" element={<BookingPage user={user!} onUserUpdate={setUser} />} />
-        <Route path="/my" element={<MyBookingsPage telegramId={user?.telegram_id ?? 0} />} />
+        <Route path="/my" element={<MyBookingsPage />} />
         <Route
           path="/profile"
           element={user ? <ProfilePage user={user} onSave={setUser} isOnboarding={false} /> : null}
         />
-        {isAdmin && <Route path="/admin" element={<AdminPage telegramId={user?.telegram_id ?? 0} />} />}
-        {isAdmin && <Route path="/stats" element={<StatsPage telegramId={user?.telegram_id ?? 0} />} />}
+        {isAdmin && <Route path="/admin" element={<AdminPage />} />}
+        {isAdmin && <Route path="/stats" element={<StatsPage />} />}
       </Routes>
       <NavBar isAdmin={isAdmin} />
     </>

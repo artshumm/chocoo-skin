@@ -1,20 +1,12 @@
 import { useEffect, useState } from "react";
 import { getAllBookings, getExpenses, createExpense, deleteExpense } from "../api/client";
 import type { Booking, Expense } from "../types";
-
-interface Props {
-  telegramId: number;
-}
+import { todayMinsk, daysAgoMinsk, currentMonthMinsk } from "../utils/timezone";
 
 const MONTH_NAMES = [
   "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
   "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
 ];
-
-function getCurrentMonth(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
 
 function formatMonthLabel(month: string): string {
   const [y, m] = month.split("-");
@@ -31,23 +23,12 @@ function formatMoney(n: number): string {
   return n.toLocaleString("ru-RU") + " BYN";
 }
 
-function todayStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function daysAgoStr(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-export default function StatsPage({ telegramId }: Props) {
+export default function StatsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth);
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthMinsk);
 
   // Expense form
   const [showForm, setShowForm] = useState(false);
@@ -58,27 +39,27 @@ export default function StatsPage({ telegramId }: Props) {
   // Load bookings once
   useEffect(() => {
     setLoading(true);
-    getAllBookings(telegramId)
+    getAllBookings()
       .then(setBookings)
       .catch(() => setError("Ошибка загрузки записей"))
       .finally(() => setLoading(false));
-  }, [telegramId]);
+  }, []);
 
   // Load expenses when month changes
   useEffect(() => {
-    getExpenses(selectedMonth, telegramId)
+    getExpenses(selectedMonth)
       .then(setExpenses)
       .catch(() => setExpenses([]));
-  }, [selectedMonth, telegramId]);
+  }, [selectedMonth]);
 
   // Revenue calculations
   const revenueBookings = bookings.filter(
     (b) => b.status === "confirmed" || b.status === "completed"
   );
 
-  const today = todayStr();
-  const weekStart = daysAgoStr(6);
-  const monthStart = daysAgoStr(29);
+  const today = todayMinsk();
+  const weekStart = daysAgoMinsk(6);
+  const monthStart = daysAgoMinsk(29);
 
   const todayBookings = revenueBookings.filter((b) => b.slot.date === today);
   const todayRevenue = todayBookings.reduce((s, b) => s + b.service.price, 0);
@@ -132,7 +113,7 @@ export default function StatsPage({ telegramId }: Props) {
     setSubmitting(true);
     setError("");
     try {
-      const created = await createExpense(newName.trim(), amount, selectedMonth, telegramId);
+      const created = await createExpense(newName.trim(), amount, selectedMonth);
       setExpenses((prev) => [created, ...prev]);
       setNewName("");
       setNewAmount("");
@@ -146,7 +127,7 @@ export default function StatsPage({ telegramId }: Props) {
 
   const handleDeleteExpense = async (id: number) => {
     try {
-      await deleteExpense(id, telegramId);
+      await deleteExpense(id);
       setExpenses((prev) => prev.filter((e) => e.id !== id));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка");

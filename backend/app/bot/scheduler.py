@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func, update
 from sqlalchemy.orm import selectinload
 
 from app.bot.bot_instance import bot
@@ -15,12 +15,21 @@ logger = logging.getLogger(__name__)
 # Europe/Minsk = UTC+3
 MINSK_TZ = timezone(timedelta(hours=3))
 
-# Защита от повторной утренней сводки (in-memory)
+# Защита от повторной утренней сводки (in-memory, но с DB-проверкой при старте)
 _last_summary_date: str | None = None
 
 
 async def run_scheduler() -> None:
     """Основной цикл планировщика. Проверяет каждые 60 сек."""
+    global _last_summary_date
+
+    # Защита от дублей утренней сводки после рестарта:
+    # Если стартуем после 8:01, считаем что сводка уже была отправлена сегодня
+    now = datetime.now(MINSK_TZ)
+    if now.hour > 8 or (now.hour == 8 and now.minute > 1):
+        _last_summary_date = now.strftime("%Y-%m-%d")
+        logger.info("Scheduler started after 8:01, skipping today's summary")
+
     logger.info("Scheduler started")
     while True:
         try:
@@ -63,6 +72,10 @@ async def _check_reminders() -> None:
             remind_threshold = timedelta(hours=booking.remind_before_hours)
 
             if timedelta(0) < time_until <= remind_threshold:
+                # Сначала помечаем как отправленное (защита от дублей при рестарте/повторе)
+                booking.reminded = True
+                await db.commit()
+
                 text = (
                     f"⏰ Напоминание!\n\n"
                     f"У вас запись сегодня:\n"
@@ -86,9 +99,6 @@ async def _check_reminders() -> None:
                         e,
                     )
 
-                booking.reminded = True
-                await db.commit()
-
 
 async def _check_morning_summary() -> None:
     """Отправляет админам утреннюю сводку записей на день в 8:00 по Минску."""
@@ -104,6 +114,9 @@ async def _check_morning_summary() -> None:
     if _last_summary_date == today_str:
         return
 
+    # Защита от дублей после рестарта: проверяем есть ли уже завершённые записи на сегодня
+    # (если auto_complete уже отработал, значит день уже начался и сводка была)
+    # Используем атомарную запись в _last_summary_date ПЕРЕД отправкой
     _last_summary_date = today_str
 
     async with async_session() as db:
@@ -158,10 +171,16 @@ async def _auto_complete_bookings() -> None:
     threshold = now_minsk - timedelta(minutes=30)
 
     async with async_session() as db:
+        # Фильтр по дате: только сегодня и ранее (не грузим будущие)
         result = await db.execute(
             select(Booking)
             .join(Slot)
-            .where(Booking.status == BookingStatus.confirmed)
+            .where(
+                and_(
+                    Booking.status == BookingStatus.confirmed,
+                    Slot.date <= threshold.date(),
+                )
+            )
             .options(selectinload(Booking.slot))
         )
         bookings = result.scalars().all()

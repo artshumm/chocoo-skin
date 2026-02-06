@@ -6,14 +6,6 @@ from pydantic import BaseModel, Field
 # ── Users ──
 
 
-class UserAuth(BaseModel):
-    """Данные из Telegram для регистрации/логина."""
-
-    telegram_id: int
-    username: str | None = None
-    first_name: str | None = None
-
-
 class UserResponse(BaseModel):
     id: int
     telegram_id: int
@@ -77,19 +69,18 @@ class SlotCreate(BaseModel):
 class SlotUpdate(BaseModel):
     """Админ блокирует/разблокирует слот."""
 
-    status: str  # "available" | "blocked"
+    status: str = Field(..., pattern=r"^(available|blocked)$")
 
 
 # ── Bookings ──
 
 
 class BookingCreate(BaseModel):
-    """Клиент записывается."""
+    """Клиент записывается. telegram_id извлекается из initData."""
 
-    telegram_id: int
-    service_id: int
-    slot_id: int
-    remind_before_hours: int = 2
+    service_id: int = Field(..., gt=0)
+    slot_id: int = Field(..., gt=0)
+    remind_before_hours: int = Field(default=2, ge=1, le=24)
 
 
 class BookingResponse(BaseModel):

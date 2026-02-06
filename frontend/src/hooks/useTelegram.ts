@@ -46,6 +46,7 @@ export function useTelegram() {
     telegramId: user?.id ?? 0,
     username: user?.username,
     firstName: user?.first_name,
+    initData: tg?.initData ?? "",
     colorScheme: tg?.colorScheme ?? "light",
   };
 }

@@ -12,7 +12,6 @@ interface Props {
 const PHONE_PREFIX = "+375";
 
 export default function BookingPage({ user, onUserUpdate }: Props) {
-  const telegramId = user.telegram_id;
   const [services, setServices] = useState<Service[]>([]);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -42,13 +41,17 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
   ];
 
   useEffect(() => {
-    getServices().then(setServices);
+    getServices()
+      .then(setServices)
+      .catch(() => setError("Не удалось загрузить услуги"));
   }, []);
 
   useEffect(() => {
     if (!selectedDate) return;
     setSelectedSlot(null);
-    getSlots(selectedDate).then(setSlots);
+    getSlots(selectedDate)
+      .then(setSlots)
+      .catch(() => setError("Не удалось загрузить слоты"));
   }, [selectedDate]);
 
   // Auto-scroll to book button when slot is selected
@@ -65,7 +68,7 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
     setLoading(true);
     setError("");
     try {
-      await createBooking(telegramId, selectedService.id, selectedSlot.id, remindHours);
+      await createBooking(selectedService.id, selectedSlot.id, remindHours);
       setSuccess(`Вы записаны на ${selectedDate} в ${selectedSlot.start_time.slice(0, 5)}`);
       setSelectedSlot(null);
       setSelectedService(null);
@@ -106,7 +109,7 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
     setRegLoading(true);
     setRegError("");
     try {
-      const updated = await updateProfile(telegramId, regName.trim(), regPhone, true);
+      const updated = await updateProfile(regName.trim(), regPhone, true);
       onUserUpdate(updated);
       setShowRegModal(false);
       await doBook();

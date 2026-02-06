@@ -1,11 +1,11 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import require_admin
+from app.api.deps import get_telegram_user, require_admin
 from app.bot.notifications import (
     notify_admins_cancelled_booking,
     notify_admins_new_booking,
@@ -23,10 +23,16 @@ CANCEL_MIN_HOURS = 10
 
 
 @router.post("/", response_model=BookingResponse)
-async def create_booking(data: BookingCreate, db: AsyncSession = Depends(get_db)):
-    """Клиент записывается на свободный слот."""
+async def create_booking(
+    data: BookingCreate,
+    tg_user: dict = Depends(get_telegram_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Клиент записывается на свободный слот. telegram_id из initData."""
+    telegram_id = tg_user["id"]
+
     # Проверяем пользователя
-    result = await db.execute(select(User).where(User.telegram_id == data.telegram_id))
+    result = await db.execute(select(User).where(User.telegram_id == telegram_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден. Сначала вызовите /api/users/auth")
@@ -105,14 +111,15 @@ async def create_booking(data: BookingCreate, db: AsyncSession = Depends(get_db)
 
 @router.get("/my", response_model=list[BookingResponse])
 async def get_my_bookings(
-    x_telegram_id: int = Header(...),
+    tg_user: dict = Depends(get_telegram_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Записи клиента."""
+    telegram_id = tg_user["id"]
     result = await db.execute(
         select(Booking)
         .join(User)
-        .where(User.telegram_id == x_telegram_id)
+        .where(User.telegram_id == telegram_id)
         .options(
             selectinload(Booking.client),
             selectinload(Booking.service),
@@ -126,14 +133,15 @@ async def get_my_bookings(
 @router.patch("/{booking_id}/cancel", response_model=BookingResponse)
 async def cancel_booking(
     booking_id: int,
-    x_telegram_id: int = Header(...),
+    tg_user: dict = Depends(get_telegram_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Клиент отменяет свою запись. Минимум за 10 часов до начала."""
+    telegram_id = tg_user["id"]
     result = await db.execute(
         select(Booking)
         .join(User)
-        .where(Booking.id == booking_id, User.telegram_id == x_telegram_id)
+        .where(Booking.id == booking_id, User.telegram_id == telegram_id)
         .options(
             selectinload(Booking.client),
             selectinload(Booking.service),
@@ -158,7 +166,9 @@ async def cancel_booking(
         )
 
     booking.status = BookingStatus.cancelled
-    booking.slot.status = SlotStatus.available
+    # Восстанавливаем слот только если он был забронирован (не если админ заблокировал)
+    if booking.slot.status == SlotStatus.booked:
+        booking.slot.status = SlotStatus.available
 
     await db.commit()
     await db.refresh(booking)

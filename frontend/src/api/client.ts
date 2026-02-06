@@ -2,10 +2,26 @@ import type { Booking, Expense, FaqItem, SalonInfo, Service, Slot, User } from "
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
+/** Глобальный initData — устанавливается из App.tsx при загрузке */
+let _initData = "";
+
+export function setInitData(initData: string) {
+  _initData = initData;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  // Добавляем Authorization с initData для всех запросов
+  if (_initData) {
+    headers["Authorization"] = `tma ${_initData}`;
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers,
   });
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: res.statusText }));
@@ -18,17 +34,13 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const getSalonInfo = () => request<SalonInfo>("/api/salon");
 export const getFaq = () => request<FaqItem[]>("/api/faq");
 
-// Users
-export const authUser = (telegram_id: number, username?: string, first_name?: string) =>
-  request<User>("/api/users/auth", {
-    method: "POST",
-    body: JSON.stringify({ telegram_id, username, first_name }),
-  });
+// Users — данные берутся из initData на бэкенде
+export const authUser = () =>
+  request<User>("/api/users/auth", { method: "POST" });
 
-export const updateProfile = (telegram_id: number, first_name: string, phone: string, consent_given: boolean) =>
+export const updateProfile = (first_name: string, phone: string, consent_given: boolean) =>
   request<User>("/api/users/profile", {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", "X-Telegram-Id": String(telegram_id) },
     body: JSON.stringify({ first_name, phone, consent_given }),
   });
 
@@ -39,33 +51,27 @@ export const getServices = () => request<Service[]>("/api/services/");
 export const getSlots = (date: string) =>
   request<Slot[]>(`/api/slots/?date=${date}`);
 
-// Bookings
-export const createBooking = (telegram_id: number, service_id: number, slot_id: number, remind_before_hours: number = 2) =>
+// Bookings — telegram_id берётся из initData
+export const createBooking = (service_id: number, slot_id: number, remind_before_hours: number = 2) =>
   request<Booking>("/api/bookings/", {
     method: "POST",
-    body: JSON.stringify({ telegram_id, service_id, slot_id, remind_before_hours }),
+    body: JSON.stringify({ service_id, slot_id, remind_before_hours }),
   });
 
-export const getMyBookings = (telegramId: number) =>
-  request<Booking[]>("/api/bookings/my", {
-    headers: { "X-Telegram-Id": String(telegramId) },
-  });
+export const getMyBookings = () =>
+  request<Booking[]>("/api/bookings/my");
 
-export const cancelBooking = (bookingId: number, telegramId: number) =>
+export const cancelBooking = (bookingId: number) =>
   request<Booking>(`/api/bookings/${bookingId}/cancel`, {
     method: "PATCH",
-    headers: { "X-Telegram-Id": String(telegramId) },
   });
 
-// Admin
-export const getAllSlots = (date: string, telegramId: number) =>
-  request<Slot[]>(`/api/slots/all?date=${date}`, {
-    headers: { "Content-Type": "application/json", "X-Telegram-Id": String(telegramId) },
-  });
+// Admin — идентификация через initData
+export const getAllSlots = (date: string) =>
+  request<Slot[]>(`/api/slots/all?date=${date}`);
 
 export const generateSlots = (
   date: string,
-  telegramId: number,
   startHour = 8,
   startMinute = 30,
   endHour = 21,
@@ -73,7 +79,6 @@ export const generateSlots = (
 ) =>
   request<Slot[]>("/api/slots/generate", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Telegram-Id": String(telegramId) },
     body: JSON.stringify({
       date,
       start_hour: startHour,
@@ -84,33 +89,26 @@ export const generateSlots = (
     }),
   });
 
-export const updateSlot = (slotId: number, status: string, telegramId: number) =>
+export const updateSlot = (slotId: number, status: string) =>
   request<Slot>(`/api/slots/${slotId}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", "X-Telegram-Id": String(telegramId) },
     body: JSON.stringify({ status }),
   });
 
-export const getAllBookings = (telegramId: number) =>
-  request<Booking[]>("/api/bookings/all", {
-    headers: { "Content-Type": "application/json", "X-Telegram-Id": String(telegramId) },
-  });
+export const getAllBookings = () =>
+  request<Booking[]>("/api/bookings/all");
 
 // Expenses (Admin)
-export const getExpenses = (month: string, telegramId: number) =>
-  request<Expense[]>(`/api/expenses/?month=${month}`, {
-    headers: { "Content-Type": "application/json", "X-Telegram-Id": String(telegramId) },
-  });
+export const getExpenses = (month: string) =>
+  request<Expense[]>(`/api/expenses/?month=${month}`);
 
-export const createExpense = (name: string, amount: number, month: string, telegramId: number) =>
+export const createExpense = (name: string, amount: number, month: string) =>
   request<Expense>("/api/expenses/", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Telegram-Id": String(telegramId) },
     body: JSON.stringify({ name, amount, month }),
   });
 
-export const deleteExpense = (expenseId: number, telegramId: number) =>
+export const deleteExpense = (expenseId: number) =>
   request<{ ok: boolean }>(`/api/expenses/${expenseId}`, {
     method: "DELETE",
-    headers: { "Content-Type": "application/json", "X-Telegram-Id": String(telegramId) },
   });

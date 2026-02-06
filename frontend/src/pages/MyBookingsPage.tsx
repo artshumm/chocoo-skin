@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
 import { getMyBookings, cancelBooking } from "../api/client";
 import type { Booking } from "../types";
-
-interface Props {
-  telegramId: number;
-}
+import { msUntilSlotMinsk } from "../utils/timezone";
 
 const STATUS_LABELS: Record<string, string> = {
   confirmed: "Подтверждена",
@@ -15,17 +12,12 @@ const STATUS_LABELS: Record<string, string> = {
 
 const CANCEL_MIN_HOURS = 10;
 
-/** Можно ли отменить запись (>= 10 часов до начала) */
+/** Можно ли отменить запись (>= 10 часов до начала, время по Минску) */
 function canCancel(slotDate: string, slotTime: string): boolean {
-  const [y, m, d] = slotDate.split("-").map(Number);
-  const [hh, mm] = slotTime.split(":").map(Number);
-  const slotDt = new Date(y, m - 1, d, hh, mm);
-  const now = new Date();
-  const diffMs = slotDt.getTime() - now.getTime();
-  return diffMs >= CANCEL_MIN_HOURS * 60 * 60 * 1000;
+  return msUntilSlotMinsk(slotDate, slotTime) >= CANCEL_MIN_HOURS * 60 * 60 * 1000;
 }
 
-export default function MyBookingsPage({ telegramId }: Props) {
+export default function MyBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -33,18 +25,19 @@ export default function MyBookingsPage({ telegramId }: Props) {
   const load = () => {
     setLoading(true);
     setError("");
-    getMyBookings(telegramId)
+    getMyBookings()
       .then(setBookings)
+      .catch(() => setError("Не удалось загрузить записи"))
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [telegramId]);
+  useEffect(load, []);
 
   const handleCancel = async (id: number) => {
     if (!window.confirm("Вы уверены, что хотите отменить запись?")) return;
     setError("");
     try {
-      await cancelBooking(id, telegramId);
+      await cancelBooking(id);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка отмены записи");

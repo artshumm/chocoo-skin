@@ -37,7 +37,7 @@ export default function ProfilePage({ user, onSave, isOnboarding }: Props) {
     setError("");
     setSuccess("");
     try {
-      const updated = await updateProfile(user.telegram_id, name.trim(), phone, true);
+      const updated = await updateProfile(name.trim(), phone, true);
       setSuccess("Данные сохранены");
       onSave(updated);
     } catch (e) {

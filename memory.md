@@ -137,15 +137,104 @@ docker-compose.yml             - PostgreSQL 16
 - Backend Service ID: c4c71247-3fe6-4331-825b-ba13058b9c6d
 - Frontend Service ID: fe7dec50-592e-4dff-adfc-c7bbac43a224
 
-## СЛЕДУЮЩЕЕ ДЕЙСТВИЕ
-- Тестирование через Telegram Mini App
-- ALTER TABLE на Neon (remind_before_hours, reminded) если ещё не сделано
+## ПОСТ-ДЕПЛОЙ ФИКСЫ (2026-02-06)
+- [x] Автозавершение записей через 30 мин после начала слота (scheduler.py)
+- [x] Фильтрация прошедших слотов для клиента (slots.py, 30мин cutoff)
+- [x] Валидация при создании записи — нельзя записаться на прошедшее время (bookings.py)
+- [x] Админ не может открыть прошедший слот (slots.py, проверка по текущему времени без 30мин)
+- [x] Тестовые записи админов удалены, слоты освобождены
+- [x] Утренняя сводка исключает записи админов (scheduler.py, User.role != admin)
+
+---
+
+## АУДИТ БЕЗОПАСНОСТИ (2026-02-06)
+
+### CRITICAL
+| # | Проблема | Файл | Статус |
+|---|----------|------|--------|
+| 1 | **Telegram ID не верифицируется** — x-telegram-id из заголовка принимается без HMAC-SHA256 проверки. Любой может подставить чужой ID | `deps.py:6` | ❌ НЕ ИСПРАВЛЕНО |
+
+### HIGH
+| # | Проблема | Файл | Статус |
+|---|----------|------|--------|
+| 2 | IDOR — просмотр чужих записей через подмену x-telegram-id | `bookings.py:106` | ❌ |
+| 3 | IDOR — отмена чужих записей через подмену x-telegram-id | `bookings.py:126` | ❌ |
+| 4 | IDOR — обновление чужого профиля через подмену x-telegram-id | `users.py:56` | ❌ |
+| 5 | POST /api/bookings — telegram_id из body без проверки | `bookings.py:25` | ❌ |
+| 6 | CORS allow_origins=["*"] — нет ограничений по домену | `main.py:53` | ❌ |
+
+### MEDIUM
+| # | Проблема | Файл | Статус |
+|---|----------|------|--------|
+| 7 | Нет rate limiting на /api/users/auth | `users.py:17` | ❌ |
+| 8 | Детальные ошибки раскрывают логику системы | `bookings.py:29-51` | ❌ |
+| 9 | Нет ограничений на длину строк в UserAuth | `schemas.py:9-14` | ❌ |
+
+### LOW
+| # | Проблема | Файл | Статус |
+|---|----------|------|--------|
+| 10 | Dev-режим фронтенда даёт admin при id=0 | `App.tsx:20-35` | ❌ |
+| 11 | Hardcoded DB credentials в config.py default | `config.py:12` | ❌ |
+
+**Приоритет #1**: Валидация Telegram initData (HMAC-SHA256) — закрывает проблемы 1-5
+
+---
+
+## АУДИТ БАГОВ (2026-02-06)
+
+### HIGH
+| # | Проблема | Файл | Статус |
+|---|----------|------|--------|
+| 1 | Фронт: canCancel() считает в локальном времени браузера, а не по Минску | `MyBookingsPage.tsx:19-26` | ❌ |
+| 2 | _last_summary_date в памяти — рестарт → дубль утренней сводки | `scheduler.py:18` | ❌ |
+| 3 | Напоминание может отправиться дважды (crash между send и commit) | `scheduler.py:89` | ❌ |
+| 4 | _auto_complete_bookings загружает ВСЕ confirmed в память каждые 60 сек | `scheduler.py:161` | ❌ |
+| 5 | StatsPage считает даты в локальном браузерном времени | `StatsPage.tsx:14` | ❌ |
+
+### MEDIUM
+| # | Проблема | Файл | Статус |
+|---|----------|------|--------|
+| 6 | Отмена записи ставит слот available, даже если админ его заблокировал | `bookings.py:160` | ❌ |
+| 7 | getServices() и getSlots() без .catch() — молчаливый фейл | `BookingPage.tsx:44` | ❌ |
+| 8 | Нет пагинации нигде | Все endpoints | ❌ |
+
+---
+
+## НАГРУЗКА И ПРОИЗВОДИТЕЛЬНОСТЬ
+
+| Параметр | Текущее значение | Проблема |
+|----------|-----------------|----------|
+| DB pool | 5 (default SQLAlchemy) | Макс 15 с overflow |
+| Neon free tier | 20 соединений | Пул забирает 75% |
+| Uvicorn | `reload=True`, 1 worker | Утечки памяти в проде |
+| Индексы | Нет на status, reminded, created_at | Тормоза scheduler |
+| Пагинация | Нигде нет | Растёт нагрузка с ростом данных |
+
+### Оценка ёмкости
+- **Одновременных пользователей**: 10-12
+- **Записей/день**: 50-100 (достаточно для 1 салона)
+- **Потолок**: 20+ одновременных запросов → переполнение пула БД
+- **Память**: 500+ записей → scheduler съедает RAM
+
+### Быстрые фиксы производительности (TODO)
+- [ ] `uvicorn reload=False` в проде
+- [ ] `pool_size=10, max_overflow=5, pool_pre_ping=True` в database.py
+- [ ] Индексы: `bookings.status`, `bookings.reminded`, `bookings.created_at`
+- [ ] Оптимизировать _auto_complete_bookings — SQL UPDATE вместо Python loop
+
+---
+
+## RAILWAY ДЕПЛОЙ — ВАЖНО
+- **ВСЕГДА** передавать полный `commitSha` (40 символов) в `serviceInstanceDeploy`
+- Без commitSha или с коротким SHA деплоит стейл/начальный коммит
+- Backend Service ID: `c4c71247-3fe6-4331-825b-ba13058b9c6d`
+- Frontend Service ID: `fe7dec50-592e-4dff-adfc-c7bbac43a224`
+- Environment ID: `628cf18a-08a6-4255-9085-0259c75231e5`
 
 ## ЧТО МОЖЕТ СЛОМАТЬСЯ
-1. .env путь: config.py ищет .env в корне проекта (3 уровня вверх от config.py) — на Railway не проблема, pydantic_settings читает env vars
+1. .env путь: config.py ищет .env в корне проекта — на Railway не проблема
 2. ADMIN_IDS: 446746688,412062038 — настроены
 3. Neon: ssl=require обязателен в DATABASE_URL
 4. Bot singleton: bot_instance.py используется и в main.py, notifications.py, scheduler.py
-5. ALTER TABLE нужен на Neon для remind_before_hours и reminded (create_all не добавит к существующей таблице)
-6. Scheduler: перезапуск сервера в 8:00 → возможен дубль утренней сводки (OK для MVP)
-7. VITE_API_URL — build-time, при смене backend URL нужен redeploy frontend
+5. Scheduler: перезапуск сервера в 8:00 → возможен дубль утренней сводки
+6. VITE_API_URL — build-time, при смене backend URL нужен redeploy frontend
