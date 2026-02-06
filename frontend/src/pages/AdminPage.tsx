@@ -28,6 +28,7 @@ export default function AdminPage({ telegramId }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [togglingId, setTogglingId] = useState<number | null>(null);
 
   const loadSlots = async (date: string) => {
     try {
@@ -83,13 +84,17 @@ export default function AdminPage({ telegramId }: Props) {
   };
 
   const handleSlotToggle = async (slot: Slot) => {
-    if (slot.status === "booked") return;
+    if (slot.status === "booked" || togglingId !== null) return;
     const newStatus = slot.status === "available" ? "blocked" : "available";
+    setTogglingId(slot.id);
+    setSlots((prev) => prev.map((s) => (s.id === slot.id ? { ...s, status: newStatus } : s)));
     try {
       await updateSlot(slot.id, newStatus, telegramId);
-      if (selectedDate) await loadSlots(selectedDate);
     } catch (e) {
+      setSlots((prev) => prev.map((s) => (s.id === slot.id ? { ...s, status: slot.status } : s)));
       setError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setTogglingId(null);
     }
   };
 
