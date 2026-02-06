@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
 from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload
@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.bot.bot_instance import bot
 from app.core.config import settings
 from app.core.database import async_session
-from app.models.models import Booking, BookingStatus, Slot, User, UserRole
+from app.models.models import Booking, BookingStatus, ScheduleTemplate, Slot, SlotStatus, User, UserRole
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +37,15 @@ async def run_scheduler() -> None:
             _check_reminders(),
             _check_morning_summary(),
             _auto_complete_bookings(),
+            _auto_generate_slots(),
             return_exceptions=True,
         )
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                task_names = ["_check_reminders", "_check_morning_summary", "_auto_complete_bookings"]
+                task_names = [
+                    "_check_reminders", "_check_morning_summary",
+                    "_auto_complete_bookings", "_auto_generate_slots",
+                ]
                 logger.error("Scheduler %s error: %s", task_names[i], result)
 
         await asyncio.sleep(60)
@@ -223,3 +227,78 @@ async def _auto_complete_bookings() -> None:
         if completed_count:
             await db.commit()
             logger.info("Auto-completed %d past bookings", completed_count)
+
+
+# Авто-генерация: запускаем раз в день (в 7:00 по Минску)
+_last_autogen_date: str | None = None
+
+AUTO_GENERATE_DAYS_AHEAD = 14
+
+
+async def _auto_generate_slots() -> None:
+    """Генерирует слоты на N дней вперёд по шаблонам расписания.
+
+    Запускается раз в день в 7:00 по Минску. Пропускает даты,
+    на которые слоты уже существуют.
+    """
+    global _last_autogen_date
+
+    now_minsk = datetime.now(MINSK_TZ)
+    today_str = now_minsk.strftime("%Y-%m-%d")
+
+    # Раз в день, в окне 7:00-7:01
+    if now_minsk.hour != 7 or now_minsk.minute > 1:
+        return
+    if _last_autogen_date == today_str:
+        return
+
+    async with async_session() as db:
+        # Загружаем активные шаблоны
+        result = await db.execute(
+            select(ScheduleTemplate).where(ScheduleTemplate.is_active == True)
+        )
+        templates = {t.day_of_week: t for t in result.scalars().all()}
+        if not templates:
+            _last_autogen_date = today_str
+            return
+
+        today = now_minsk.date()
+        total_created = 0
+
+        for offset in range(AUTO_GENERATE_DAYS_AHEAD):
+            target_date = today + timedelta(days=offset)
+            weekday = target_date.weekday()  # 0=Mon..6=Sun
+
+            template = templates.get(weekday)
+            if not template:
+                continue
+
+            # Проверяем: есть ли уже слоты на эту дату?
+            existing = await db.execute(
+                select(Slot.id).where(Slot.date == target_date).limit(1)
+            )
+            if existing.scalar_one_or_none() is not None:
+                continue
+
+            # Генерируем слоты по шаблону
+            current_minutes = template.start_time.hour * 60 + template.start_time.minute
+            end_minutes = template.end_time.hour * 60 + template.end_time.minute
+
+            while current_minutes + template.interval_minutes <= end_minutes:
+                slot_end = current_minutes + template.interval_minutes
+                if slot_end > 23 * 60 + 59:
+                    break
+                db.add(Slot(
+                    date=target_date,
+                    start_time=time(current_minutes // 60, current_minutes % 60),
+                    end_time=time(slot_end // 60, slot_end % 60),
+                    status=SlotStatus.available,
+                ))
+                total_created += 1
+                current_minutes = slot_end
+
+        if total_created:
+            await db.commit()
+            logger.info("Auto-generated %d slots for next %d days", total_created, AUTO_GENERATE_DAYS_AHEAD)
+
+    _last_autogen_date = today_str

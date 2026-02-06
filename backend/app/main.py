@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.bookings import router as bookings_router
 from app.api.expenses import router as expenses_router
 from app.api.salon import router as salon_router
+from app.api.schedule_templates import router as schedule_templates_router
 from app.api.services import router as services_router
 from app.api.slots import router as slots_router
 from app.api.users import router as users_router
@@ -73,6 +74,7 @@ app.include_router(services_router)
 app.include_router(slots_router)
 app.include_router(bookings_router)
 app.include_router(expenses_router)
+app.include_router(schedule_templates_router)
 
 
 @app.middleware("http")

@@ -123,3 +123,36 @@ class ExpenseResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ── Schedule Templates ──
+
+DAY_NAMES = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
+
+
+class ScheduleTemplateItem(BaseModel):
+    """One day template."""
+
+    day_of_week: int = Field(..., ge=0, le=6, description="0=Пн..6=Вс")
+    start_time: time
+    end_time: time
+    interval_minutes: int = Field(default=30, ge=10, le=120)
+    is_active: bool = True
+
+    @model_validator(mode="after")
+    def validate_times(self):
+        if self.start_time >= self.end_time:
+            raise ValueError("start_time must be before end_time")
+        return self
+
+
+class ScheduleTemplateResponse(ScheduleTemplateItem):
+    id: int
+
+    model_config = {"from_attributes": True}
+
+
+class ScheduleTemplateBulk(BaseModel):
+    """Bulk upsert of schedule templates."""
+
+    templates: list[ScheduleTemplateItem] = Field(..., max_length=7)

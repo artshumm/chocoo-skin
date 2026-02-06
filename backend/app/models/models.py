@@ -4,6 +4,7 @@ from datetime import date, datetime, time
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     Enum,
@@ -11,6 +12,7 @@ from sqlalchemy import (
     Index,
     Integer,
     Numeric,
+    SmallInteger,
     String,
     Text,
     Time,
@@ -162,3 +164,21 @@ class Expense(Base):
     amount: Mapped[float] = mapped_column(Numeric(10, 2))
     month: Mapped[str] = mapped_column(String(7), index=True)  # "2026-02"
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+# ── 8. Шаблоны расписания ──
+
+
+class ScheduleTemplate(Base):
+    __tablename__ = "schedule_templates"
+    __table_args__ = (
+        CheckConstraint("day_of_week >= 0 AND day_of_week <= 6", name="ck_day_range"),
+        UniqueConstraint("day_of_week", name="uq_day_of_week"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    day_of_week: Mapped[int] = mapped_column(SmallInteger)  # 0=Mon .. 6=Sun
+    start_time: Mapped[time] = mapped_column(Time)
+    end_time: Mapped[time] = mapped_column(Time)
+    interval_minutes: Mapped[int] = mapped_column(Integer, default=30)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
