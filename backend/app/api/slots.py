@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import date, datetime, time, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
@@ -11,6 +11,9 @@ from app.schemas.schemas import SlotCreate, SlotResponse, SlotUpdate
 
 router = APIRouter(prefix="/api/slots", tags=["slots"])
 
+MINSK_TZ = timezone(timedelta(hours=3))
+SLOT_CUTOFF_MINUTES = 30
+
 
 @router.get("/", response_model=list[SlotResponse])
 async def get_slots(
@@ -18,11 +21,15 @@ async def get_slots(
     db: AsyncSession = Depends(get_db),
 ):
     """Свободные слоты на указанную дату (для клиента)."""
-    result = await db.execute(
-        select(Slot)
-        .where(Slot.date == date, Slot.status == SlotStatus.available)
-        .order_by(Slot.start_time)
-    )
+    query = select(Slot).where(Slot.date == date, Slot.status == SlotStatus.available)
+
+    # Если дата сегодня — убираем слоты, до которых < 30 мин
+    now_minsk = datetime.now(MINSK_TZ)
+    if date == now_minsk.date():
+        cutoff = (now_minsk + timedelta(minutes=SLOT_CUTOFF_MINUTES)).time()
+        query = query.where(Slot.start_time >= cutoff)
+
+    result = await db.execute(query.order_by(Slot.start_time))
     return result.scalars().all()
 
 
