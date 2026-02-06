@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { getAllBookings, adminCancelBooking } from "../api/client";
 import type { Booking } from "../types";
 import { todayMinsk } from "../utils/timezone";
@@ -10,30 +10,44 @@ const STATUS_LABELS: Record<string, string> = {
   pending: "Ожидание",
 };
 
+/** Сдвинуть дату на N дней: "YYYY-MM-DD" → "YYYY-MM-DD" */
+function shiftDate(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
+}
+
+/** Форматировать дату: "2026-02-06" → "6 февраля, пт" */
+function formatDateLabel(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  const months = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
+  const days = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+  return `${d} ${months[dt.getUTCMonth()]}, ${days[dt.getUTCDay()]}`;
+}
+
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [selectedDate, setSelectedDate] = useState(todayMinsk);
 
   const today = todayMinsk();
 
-  const load = () => {
+  const load = useCallback((date: string) => {
     setLoading(true);
     setError("");
-    getAllBookings(today, "confirmed")
+    getAllBookings(date, "confirmed")
       .then(setBookings)
       .catch(() => setError("Не удалось загрузить записи"))
       .finally(() => setLoading(false));
-  };
+  }, []);
 
   useEffect(() => {
-    getAllBookings(today, "confirmed")
-      .then(setBookings)
-      .catch(() => setError("Не удалось загрузить записи"))
-      .finally(() => setLoading(false));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    load(selectedDate);
+  }, [selectedDate, load]);
 
   const handleCancel = async (bookingId: number, clientName: string) => {
     if (!confirm(`Отменить запись клиента ${clientName}?`)) return;
@@ -42,7 +56,7 @@ export default function AdminBookingsPage() {
     try {
       await adminCancelBooking(bookingId);
       setSelectedBooking(null);
-      load();
+      load(selectedDate);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка отмены");
     } finally {
@@ -57,14 +71,28 @@ export default function AdminBookingsPage() {
 
   if (loading) return <div className="loading">Загрузка...</div>;
 
+  const goPrev = () => setSelectedDate((d) => shiftDate(d, -1));
+  const goNext = () => setSelectedDate((d) => shiftDate(d, 1));
+  const goToday = () => setSelectedDate(today);
+  const isToday = selectedDate === today;
+
   return (
     <div className="page">
-      <h2 className="section-title">Записи на сегодня ({today})</h2>
+      <div className="date-nav">
+        <button className="date-nav-btn" onClick={goPrev}>&#8249;</button>
+        <div className="date-nav-center">
+          <span className="date-nav-label">{formatDateLabel(selectedDate)}</span>
+          {!isToday && (
+            <button className="date-nav-today" onClick={goToday}>Сегодня</button>
+          )}
+        </div>
+        <button className="date-nav-btn" onClick={goNext}>&#8250;</button>
+      </div>
 
       {error && <div className="error-msg">{error}</div>}
 
       {sorted.length === 0 && (
-        <div className="empty-state">Нет предстоящих записей на сегодня</div>
+        <div className="empty-state">Нет записей на эту дату</div>
       )}
 
       {sorted.map((b) => {
