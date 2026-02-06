@@ -19,10 +19,20 @@ class UserResponse(BaseModel):
     telegram_id: int
     username: str | None
     first_name: str | None
+    phone: str | None
+    consent_given: bool
     role: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class UserProfileUpdate(BaseModel):
+    """Клиент обновляет профиль."""
+
+    first_name: str = Field(..., min_length=1, max_length=100)
+    phone: str = Field(..., pattern=r"^\+375\d{9}$")
+    consent_given: bool
 
 
 # ── Services ──

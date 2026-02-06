@@ -93,6 +93,25 @@ export default function StatsPage({ telegramId }: Props) {
   );
   const monthRevenue = monthBookings.reduce((s, b) => s + b.service.price, 0);
 
+  // Client stats for selected month
+  const monthClientBookings = revenueBookings.filter(
+    (b) => b.slot.date.startsWith(selectedMonth)
+  );
+  const monthClientIds = new Set(monthClientBookings.map((b) => b.client.telegram_id));
+  const totalClients = monthClientIds.size;
+
+  // New clients: first ever booking falls in this month
+  const firstBookingMonth = new Map<number, string>();
+  for (const b of revenueBookings) {
+    const m = b.slot.date.slice(0, 7);
+    const prev = firstBookingMonth.get(b.client.telegram_id);
+    if (!prev || m < prev) firstBookingMonth.set(b.client.telegram_id, m);
+  }
+  const newClients = [...monthClientIds].filter(
+    (id) => firstBookingMonth.get(id) === selectedMonth
+  ).length;
+  const returningClients = totalClients - newClients;
+
   // Cancellations for selected month
   const monthCancelled = bookings.filter(
     (b) => b.status === "cancelled" && b.slot.date.startsWith(selectedMonth)
@@ -165,6 +184,25 @@ export default function StatsPage({ telegramId }: Props) {
           <div className="stats-card-label">Месяц</div>
           <div className="stats-card-value">{formatMoney(monthRevenue)}</div>
           <div className="stats-card-count">{monthBookings.length} зап.</div>
+        </div>
+      </div>
+
+      {/* Client stats */}
+      <div className="section-title" style={{ marginTop: 4 }}>
+        Клиенты за {formatMonthLabel(selectedMonth)}
+      </div>
+      <div className="stats-cards">
+        <div className="stats-card">
+          <div className="stats-card-label">Всего</div>
+          <div className="stats-card-value">{totalClients}</div>
+        </div>
+        <div className="stats-card">
+          <div className="stats-card-label">Новые</div>
+          <div className="stats-card-value">{newClients}</div>
+        </div>
+        <div className="stats-card">
+          <div className="stats-card-label">Постоянные</div>
+          <div className="stats-card-value">{returningClients}</div>
         </div>
       </div>
 

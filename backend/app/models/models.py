@@ -52,6 +52,8 @@ class User(Base):
     first_name: Mapped[str | None] = mapped_column(String(255))
     phone: Mapped[str | None] = mapped_column(String(20))
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.client)
+    consent_given: Mapped[bool] = mapped_column(Boolean, default=False)
+    consent_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     bookings: Mapped[list["Booking"]] = relationship(back_populates="client")

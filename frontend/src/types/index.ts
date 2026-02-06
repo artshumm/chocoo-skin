@@ -3,6 +3,8 @@ export interface User {
   telegram_id: number;
   username: string | null;
   first_name: string | null;
+  phone: string | null;
+  consent_given: boolean;
   role: string;
   created_at: string;
 }

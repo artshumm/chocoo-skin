@@ -7,6 +7,7 @@ import NavBar from "./components/NavBar";
 import HomePage from "./pages/HomePage";
 import BookingPage from "./pages/BookingPage";
 import MyBookingsPage from "./pages/MyBookingsPage";
+import ProfilePage from "./pages/ProfilePage";
 import AdminPage from "./pages/AdminPage";
 import StatsPage from "./pages/StatsPage";
 
@@ -24,6 +25,8 @@ export default function App() {
         telegram_id: 0,
         username: "dev",
         first_name: "Developer",
+        phone: "+375000000000",
+        consent_given: true,
         role: "admin",
         created_at: new Date().toISOString(),
       });
@@ -39,6 +42,19 @@ export default function App() {
 
   if (loading) return <div className="loading">Загрузка...</div>;
 
+  // Онбординг: профиль не заполнен
+  const needsOnboarding = user && (!user.consent_given || !user.phone);
+
+  if (needsOnboarding) {
+    return (
+      <ProfilePage
+        user={user}
+        onSave={setUser}
+        isOnboarding={true}
+      />
+    );
+  }
+
   const isAdmin = user?.role === "admin";
 
   return (
@@ -47,6 +63,10 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/booking" element={<BookingPage telegramId={user?.telegram_id ?? 0} />} />
         <Route path="/my" element={<MyBookingsPage telegramId={user?.telegram_id ?? 0} />} />
+        <Route
+          path="/profile"
+          element={user ? <ProfilePage user={user} onSave={setUser} isOnboarding={false} /> : null}
+        />
         {isAdmin && <Route path="/admin" element={<AdminPage telegramId={user?.telegram_id ?? 0} />} />}
         {isAdmin && <Route path="/stats" element={<StatsPage telegramId={user?.telegram_id ?? 0} />} />}
       </Routes>

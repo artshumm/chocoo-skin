@@ -147,3 +147,12 @@ body {
 .stats-profit.negative { background: #ffebee; color: #c62828; }
 .stats-profit-label { font-size: 13px; margin-bottom: 4px; opacity: 0.8; }
 .stats-profit-value { font-size: 24px; font-weight: 700; }
+
+/* Profile */
+.profile-form { display: flex; flex-direction: column; gap: 14px; }
+.profile-label { font-size: 13px; color: var(--tg-hint); margin-bottom: 4px; }
+.profile-input { width: 100%; padding: 12px; border: 1.5px solid var(--tg-secondary-bg); border-radius: 10px; font-size: 15px; background: var(--tg-bg); color: var(--tg-text); }
+.profile-input:focus { border-color: var(--tg-btn); outline: none; }
+.profile-hint { font-size: 12px; color: #c62828; margin-top: 4px; }
+.consent-label { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--tg-hint); line-height: 1.4; cursor: pointer; }
+.consent-checkbox { width: 20px; height: 20px; margin-top: 2px; flex-shrink: 0; accent-color: var(--tg-btn); }
