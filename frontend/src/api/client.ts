@@ -53,11 +53,25 @@ export const getAllSlots = (date: string, telegramId: number) =>
     headers: { "Content-Type": "application/json", "X-Telegram-Id": String(telegramId) },
   });
 
-export const generateSlots = (date: string, telegramId: number) =>
+export const generateSlots = (
+  date: string,
+  telegramId: number,
+  startHour = 8,
+  startMinute = 30,
+  endHour = 21,
+  endMinute = 0,
+) =>
   request<Slot[]>("/api/slots/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Telegram-Id": String(telegramId) },
-    body: JSON.stringify({ date, start_hour: 9, end_hour: 21, interval_minutes: 30 }),
+    body: JSON.stringify({
+      date,
+      start_hour: startHour,
+      start_minute: startMinute,
+      end_hour: endHour,
+      end_minute: endMinute,
+      interval_minutes: 30,
+    }),
   });
 
 export const updateSlot = (slotId: number, status: string, telegramId: number) =>

@@ -57,8 +57,10 @@ class SlotCreate(BaseModel):
     """Админ создаёт слоты на день."""
 
     date: date
-    start_hour: int = Field(default=9, ge=0, le=23)
+    start_hour: int = Field(default=8, ge=0, le=23)
+    start_minute: int = Field(default=30, ge=0, le=59)
     end_hour: int = Field(default=21, ge=1, le=23)
+    end_minute: int = Field(default=0, ge=0, le=59)
     interval_minutes: int = Field(default=30, ge=10, le=120)
 
 

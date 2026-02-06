@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +16,10 @@ from app.models.models import Booking, BookingStatus, Service, Slot, SlotStatus,
 from app.schemas.schemas import BookingCreate, BookingResponse
 
 router = APIRouter(prefix="/api/bookings", tags=["bookings"])
+
+# Салон в Минске (UTC+3)
+MINSK_TZ = timezone(timedelta(hours=3))
+CANCEL_MIN_HOURS = 10
 
 
 @router.post("/", response_model=BookingResponse)
@@ -67,7 +73,9 @@ async def create_booking(data: BookingCreate, db: AsyncSession = Depends(get_db)
 
     # Уведомляем админов
     await notify_admins_new_booking(
-        client_name=booking.client.first_name or booking.client.username or str(booking.client.telegram_id),
+        first_name=booking.client.first_name,
+        username=booking.client.username,
+        phone=booking.client.phone,
         service_name=booking.service.name,
         slot_date=str(booking.slot.date),
         slot_time=booking.slot.start_time.strftime("%H:%M"),
@@ -111,7 +119,7 @@ async def cancel_booking(
     telegram_id: int = Query(..., description="Telegram ID клиента"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Клиент отменяет свою запись."""
+    """Клиент отменяет свою запись. Минимум за 10 часов до начала."""
     result = await db.execute(
         select(Booking)
         .join(User)
@@ -128,6 +136,16 @@ async def cancel_booking(
 
     if booking.status == BookingStatus.cancelled:
         raise HTTPException(status_code=400, detail="Запись уже отменена")
+
+    # Проверка: минимум 10 часов до начала записи
+    now_minsk = datetime.now(MINSK_TZ).replace(tzinfo=None)
+    slot_dt = datetime.combine(booking.slot.date, booking.slot.start_time)
+    time_until = slot_dt - now_minsk
+    if time_until < timedelta(hours=CANCEL_MIN_HOURS):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Отмена возможна не позднее чем за {CANCEL_MIN_HOURS} часов до записи",
+        )
 
     booking.status = BookingStatus.cancelled
     booking.slot.status = SlotStatus.available
@@ -149,7 +167,9 @@ async def cancel_booking(
 
     # Уведомляем админов
     await notify_admins_cancelled_booking(
-        client_name=booking.client.first_name or booking.client.username or str(booking.client.telegram_id),
+        first_name=booking.client.first_name,
+        username=booking.client.username,
+        phone=booking.client.phone,
         service_name=booking.service.name,
         slot_date=str(booking.slot.date),
         slot_time=booking.slot.start_time.strftime("%H:%M"),

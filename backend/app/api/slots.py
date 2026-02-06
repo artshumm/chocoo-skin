@@ -54,8 +54,8 @@ async def generate_slots(
         )
 
     slots = []
-    current_minutes = data.start_hour * 60
-    end_minutes_limit = data.end_hour * 60
+    current_minutes = data.start_hour * 60 + data.start_minute
+    end_minutes_limit = data.end_hour * 60 + data.end_minute
 
     while current_minutes + data.interval_minutes <= end_minutes_limit:
         slot_end = current_minutes + data.interval_minutes

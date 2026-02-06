@@ -6,16 +6,42 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
+def _format_client_info(
+    first_name: str | None,
+    username: str | None,
+    phone: str | None,
+) -> str:
+    """Форматирует информацию о клиенте для уведомлений админам."""
+    # Имя (@username) или fallback
+    if first_name and username:
+        name_line = f"Клиент: {first_name} (@{username})"
+    elif first_name:
+        name_line = f"Клиент: {first_name}"
+    elif username:
+        name_line = f"Клиент: @{username}"
+    else:
+        name_line = "Клиент: (не указан)"
+
+    lines = [name_line]
+    if phone:
+        lines.append(f"Телефон: {phone}")
+
+    return "\n".join(lines)
+
+
 async def notify_admins_new_booking(
-    client_name: str,
+    first_name: str | None,
+    username: str | None,
+    phone: str | None,
     service_name: str,
     slot_date: str,
     slot_time: str,
 ) -> None:
     """Уведомляет всех админов о новой записи."""
+    client_info = _format_client_info(first_name, username, phone)
     text = (
         f"📋 Новая запись!\n\n"
-        f"Клиент: {client_name}\n"
+        f"{client_info}\n"
         f"Услуга: {service_name}\n"
         f"Дата: {slot_date}\n"
         f"Время: {slot_time}"
@@ -24,15 +50,18 @@ async def notify_admins_new_booking(
 
 
 async def notify_admins_cancelled_booking(
-    client_name: str,
+    first_name: str | None,
+    username: str | None,
+    phone: str | None,
     service_name: str,
     slot_date: str,
     slot_time: str,
 ) -> None:
     """Уведомляет всех админов об отмене записи."""
+    client_info = _format_client_info(first_name, username, phone)
     text = (
         f"❌ Отмена записи\n\n"
-        f"Клиент: {client_name}\n"
+        f"{client_info}\n"
         f"Услуга: {service_name}\n"
         f"Дата: {slot_date}\n"
         f"Время: {slot_time}"

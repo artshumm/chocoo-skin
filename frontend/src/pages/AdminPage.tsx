@@ -8,6 +8,19 @@ interface Props {
   telegramId: number;
 }
 
+/** 0=Sun, 6=Sat. Парсим YYYY-MM-DD без timezone-сдвига */
+function getDayOfWeek(dateStr: string): number {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d).getDay();
+}
+
+function getScheduleForDate(dateStr: string) {
+  const dow = getDayOfWeek(dateStr);
+  if (dow === 0) return { isSunday: true, label: "", startHour: 0, startMinute: 0, endHour: 0, endMinute: 0 };
+  if (dow === 6) return { isSunday: false, label: "8:30-16:00", startHour: 8, startMinute: 30, endHour: 16, endMinute: 0 };
+  return { isSunday: false, label: "8:30-21:00", startHour: 8, startMinute: 30, endHour: 21, endMinute: 0 };
+}
+
 export default function AdminPage({ telegramId }: Props) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -46,10 +59,20 @@ export default function AdminPage({ telegramId }: Props) {
 
   const handleGenerate = async () => {
     if (!selectedDate) return;
+    const schedule = getScheduleForDate(selectedDate);
+    if (schedule.isSunday) return;
+
     setLoading(true);
     setError("");
     try {
-      await generateSlots(selectedDate, telegramId);
+      await generateSlots(
+        selectedDate,
+        telegramId,
+        schedule.startHour,
+        schedule.startMinute,
+        schedule.endHour,
+        schedule.endMinute,
+      );
       setSuccess(`Слоты на ${selectedDate} созданы`);
       await loadSlots(selectedDate);
     } catch (e) {
@@ -75,6 +98,8 @@ export default function AdminPage({ telegramId }: Props) {
     (b) => b.slot.date === selectedDate && b.status !== "cancelled"
   );
 
+  const schedule = selectedDate ? getScheduleForDate(selectedDate) : null;
+
   return (
     <div className="page">
       <h2 className="section-title">Управление</h2>
@@ -84,7 +109,7 @@ export default function AdminPage({ telegramId }: Props) {
 
       <Calendar selectedDate={selectedDate} onSelect={(d) => { setSelectedDate(d); setSuccess(""); setError(""); }} />
 
-      {selectedDate && (
+      {selectedDate && schedule && (
         <>
           <div className="admin-legend">
             <span><span className="legend-dot green" /> Свободен</span>
@@ -92,13 +117,17 @@ export default function AdminPage({ telegramId }: Props) {
             <span><span className="legend-dot red" /> Заблокирован</span>
           </div>
 
-          {slots.length === 0 ? (
+          {schedule.isSunday ? (
+            <div className="empty-state" style={{ padding: "20px 0", textAlign: "center" }}>
+              Воскресенье — выходной день
+            </div>
+          ) : slots.length === 0 ? (
             <div style={{ textAlign: "center", marginBottom: 16 }}>
               <div className="empty-state" style={{ padding: "20px 0" }}>
                 Слоты на {selectedDate} не созданы
               </div>
               <button className="btn" onClick={handleGenerate} disabled={loading}>
-                {loading ? "Создаю..." : "Создать слоты (9:00-21:00)"}
+                {loading ? "Создаю..." : `Создать слоты (${schedule.label})`}
               </button>
             </div>
           ) : (

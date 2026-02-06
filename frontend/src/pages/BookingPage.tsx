@@ -87,6 +87,9 @@ export default function BookingPage({ telegramId }: Props) {
             }}
           >
             <div className="name">{s.name}</div>
+            {s.short_description && (
+              <div className="short-desc">{s.short_description}</div>
+            )}
             <div className="meta">
               {s.duration_minutes} мин · {s.price} BYN
             </div>

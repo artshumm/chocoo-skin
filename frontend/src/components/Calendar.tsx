@@ -98,7 +98,8 @@ export default function Calendar({ selectedDate, onSelect }: Props) {
           const dateStr = formatDate(d);
           const isToday = dateStr === todayStr;
           const isSelected = dateStr === selectedDate;
-          const isActive = dateStr >= todayStr && dateStr <= maxStr;
+          const isSunday = d.getDay() === 0;
+          const isActive = dateStr >= todayStr && dateStr <= maxStr && !isSunday;
 
           return (
             <div
