@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.bot.bot_instance import bot
 from app.core.config import settings
 from app.core.database import async_session
-from app.models.models import Booking, BookingStatus, Slot
+from app.models.models import Booking, BookingStatus, Slot, User, UserRole
 
 logger = logging.getLogger(__name__)
 
@@ -111,10 +111,12 @@ async def _check_morning_summary() -> None:
         result = await db.execute(
             select(Booking)
             .join(Slot)
+            .join(User, Booking.client_id == User.id)
             .where(
                 and_(
                     Slot.date == today_date,
                     Booking.status == BookingStatus.confirmed,
+                    User.role != UserRole.admin,
                 )
             )
             .options(
