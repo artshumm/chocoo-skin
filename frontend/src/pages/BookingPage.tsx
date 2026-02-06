@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { getServices, getSlots, createBooking, updateProfile } from "../api/client";
 import type { Service, Slot, User } from "../types";
 import Calendar from "../components/Calendar";
@@ -12,6 +13,7 @@ interface Props {
 const PHONE_PREFIX = "+375";
 
 export default function BookingPage({ user, onUserUpdate }: Props) {
+  const location = useLocation();
   const [services, setServices] = useState<Service[]>([]);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -41,11 +43,20 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
     { value: 24, label: "24ч" },
   ];
 
+  // Pre-select service from "Записаться снова" navigation
+  const preSelectServiceId = (location.state as { serviceId?: number } | null)?.serviceId;
+
   useEffect(() => {
     getServices()
-      .then(setServices)
+      .then((list) => {
+        setServices(list);
+        if (preSelectServiceId) {
+          const found = list.find((s) => s.id === preSelectServiceId);
+          if (found) setSelectedService(found);
+        }
+      })
       .catch(() => setError("Не удалось загрузить услуги"));
-  }, []);
+  }, [preSelectServiceId]);
 
   useEffect(() => {
     if (!selectedDate) return;

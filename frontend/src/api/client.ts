@@ -52,6 +52,10 @@ export const getServices = () => request<Service[]>("/api/services/");
 export const getSlots = (date: string) =>
   request<Slot[]>(`/api/slots/?date=${date}`);
 
+// Slot availability (for calendar badges)
+export const getSlotAvailability = (from: string, to: string) =>
+  request<Record<string, number>>(`/api/slots/availability?from=${from}&to=${to}`);
+
 // Bookings — telegram_id берётся из initData
 export const createBooking = (service_id: number, slot_id: number, remind_before_hours: number = 2) =>
   request<Booking>("/api/bookings/", {

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getSlotAvailability } from "../api/client";
 import { nowMinsk } from "../utils/timezone";
 
 interface Props {
@@ -69,6 +70,15 @@ export default function Calendar({ selectedDate, onSelect }: Props) {
   const todayStr = formatDate(todayReal);
   const maxStr = formatDate(maxDate);
 
+  // Slot availability counts per date
+  const [availability, setAvailability] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    getSlotAvailability(todayStr, maxStr)
+      .then(setAvailability)
+      .catch(() => {});
+  }, [todayStr, maxStr]);
+
   return (
     <div className="calendar">
       <div className="calendar-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -101,14 +111,18 @@ export default function Calendar({ selectedDate, onSelect }: Props) {
           const isSelected = dateStr === selectedDate;
           const isSunday = d.getUTCDay() === 0;
           const isActive = dateStr >= todayStr && dateStr <= maxStr && !isSunday;
+          const slotCount = availability[dateStr] || 0;
 
           return (
             <div
               key={dateStr}
-              className={`calendar-day${isSelected ? " selected" : ""}${isToday ? " today" : ""}${!isActive ? " disabled" : ""}`}
+              className={`calendar-day${isSelected ? " selected" : ""}${isToday ? " today" : ""}${!isActive ? " disabled" : ""}${isActive && slotCount === 0 ? " no-slots" : ""}`}
               onClick={() => isActive && onSelect(dateStr)}
             >
               {d.getUTCDate()}
+              {isActive && slotCount > 0 && (
+                <span className="slot-badge">{slotCount}</span>
+              )}
             </div>
           );
         })}

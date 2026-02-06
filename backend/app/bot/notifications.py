@@ -119,6 +119,25 @@ async def notify_client_booking_cancelled_by_admin(
         logger.warning("Failed to send cancellation to client %s: %s", telegram_id, e)
 
 
+async def notify_client_post_session(
+    telegram_id: int,
+    service_name: str,
+) -> None:
+    """Отправляет клиенту сообщение после сеанса (спасибо + повторная запись)."""
+    text = (
+        f"Спасибо за визит! 🙏\n\n"
+        f"Надеемся, вам понравился сеанс «{service_name}».\n"
+        f"Для повторной записи откройте приложение."
+    )
+    try:
+        await asyncio.wait_for(
+            bot.send_message(chat_id=telegram_id, text=text),
+            timeout=SEND_TIMEOUT,
+        )
+    except Exception as e:
+        logger.warning("Failed to send post-session msg to %s: %s", telegram_id, e)
+
+
 async def _send_to_admins(text: str) -> None:
     """Отправляет сообщение всем админам. Ошибки логируются, не прерывают работу."""
     for admin_id in settings.admin_id_list:

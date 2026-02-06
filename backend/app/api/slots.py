@@ -1,7 +1,7 @@
 from datetime import date, datetime, time, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_admin
@@ -31,6 +31,29 @@ async def get_slots(
 
     result = await db.execute(query.order_by(Slot.start_time))
     return result.scalars().all()
+
+
+@router.get("/availability")
+async def get_slot_availability(
+    date_from: date = Query(..., alias="from", description="Начальная дата YYYY-MM-DD"),
+    date_to: date = Query(..., alias="to", description="Конечная дата YYYY-MM-DD"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Количество свободных слотов по датам (для календаря)."""
+    if (date_to - date_from).days > 31:
+        raise HTTPException(status_code=400, detail="Максимальный диапазон — 31 день")
+
+    query = (
+        select(Slot.date, func.count(Slot.id))
+        .where(
+            Slot.date >= date_from,
+            Slot.date <= date_to,
+            Slot.status == SlotStatus.available,
+        )
+        .group_by(Slot.date)
+    )
+    result = await db.execute(query)
+    return {str(row[0]): row[1] for row in result.all()}
 
 
 @router.get("/all", response_model=list[SlotResponse])

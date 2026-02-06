@@ -6,6 +6,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload
 
 from app.bot.bot_instance import bot
+from app.bot.notifications import notify_client_post_session
 from app.core.config import settings
 from app.core.database import async_session
 from app.models.models import Booking, BookingStatus, ScheduleTemplate, Slot, SlotStatus, User, UserRole
@@ -38,6 +39,7 @@ async def run_scheduler() -> None:
             _check_morning_summary(),
             _auto_complete_bookings(),
             _auto_generate_slots(),
+            _check_post_session_feedback(),
             return_exceptions=True,
         )
         for i, result in enumerate(results):
@@ -45,6 +47,7 @@ async def run_scheduler() -> None:
                 task_names = [
                     "_check_reminders", "_check_morning_summary",
                     "_auto_complete_bookings", "_auto_generate_slots",
+                    "_check_post_session_feedback",
                 ]
                 logger.error("Scheduler %s error: %s", task_names[i], result)
 
@@ -227,6 +230,53 @@ async def _auto_complete_bookings() -> None:
         if completed_count:
             await db.commit()
             logger.info("Auto-completed %d past bookings", completed_count)
+
+
+FEEDBACK_DELAY_HOURS = 1  # через 1 час после окончания сеанса
+
+
+async def _check_post_session_feedback() -> None:
+    """Отправляет 'Спасибо за визит' через 1 час после окончания сеанса."""
+    now_minsk = datetime.now(MINSK_TZ)
+
+    async with async_session() as db:
+        result = await db.execute(
+            select(Booking)
+            .join(Slot)
+            .where(
+                and_(
+                    Booking.status == BookingStatus.completed,
+                    Booking.feedback_sent == False,
+                    Slot.date <= now_minsk.date(),
+                )
+            )
+            .options(
+                selectinload(Booking.client),
+                selectinload(Booking.service),
+                selectinload(Booking.slot),
+            )
+        )
+        bookings = result.scalars().all()
+
+        sent_count = 0
+        for booking in bookings:
+            slot = booking.slot
+            end_dt = datetime.combine(
+                slot.date, slot.start_time, tzinfo=MINSK_TZ
+            ) + timedelta(minutes=booking.service.duration_minutes)
+
+            if now_minsk >= end_dt + timedelta(hours=FEEDBACK_DELAY_HOURS):
+                booking.feedback_sent = True
+                await db.commit()
+
+                await notify_client_post_session(
+                    telegram_id=booking.client.telegram_id,
+                    service_name=booking.service.name,
+                )
+                sent_count += 1
+
+        if sent_count:
+            logger.info("Sent %d post-session feedback messages", sent_count)
 
 
 # Авто-генерация: запускаем раз в день (в 7:00 по Минску)

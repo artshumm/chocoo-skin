@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getMyBookings, cancelBooking } from "../api/client";
 import type { Booking } from "../types";
 import { msUntilSlotMinsk } from "../utils/timezone";
@@ -12,6 +13,15 @@ const STATUS_LABELS: Record<string, string> = {
 
 const CANCEL_MIN_HOURS = 10;
 
+type FilterTab = "all" | "upcoming" | "completed" | "cancelled";
+
+const TABS: { key: FilterTab; label: string }[] = [
+  { key: "all", label: "Все" },
+  { key: "upcoming", label: "Предстоящие" },
+  { key: "completed", label: "Завершённые" },
+  { key: "cancelled", label: "Отменённые" },
+];
+
 /** Можно ли отменить запись (>= 10 часов до начала, время по Минску) */
 function canCancel(slotDate: string, slotTime: string): boolean {
   return msUntilSlotMinsk(slotDate, slotTime) >= CANCEL_MIN_HOURS * 60 * 60 * 1000;
@@ -21,6 +31,8 @@ export default function MyBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [filter, setFilter] = useState<FilterTab>("all");
+  const navigate = useNavigate();
 
   const load = () => {
     setLoading(true);
@@ -32,6 +44,19 @@ export default function MyBookingsPage() {
   };
 
   useEffect(load, []);
+
+  const filtered = useMemo(() => {
+    switch (filter) {
+      case "upcoming":
+        return bookings.filter((b) => b.status === "confirmed");
+      case "completed":
+        return bookings.filter((b) => b.status === "completed");
+      case "cancelled":
+        return bookings.filter((b) => b.status === "cancelled");
+      default:
+        return bookings;
+    }
+  }, [bookings, filter]);
 
   const handleCancel = async (id: number) => {
     if (!window.confirm("Вы уверены, что хотите отменить запись?")) return;
@@ -52,9 +77,25 @@ export default function MyBookingsPage() {
 
       {error && <div className="error-msg">{error}</div>}
 
-      {bookings.length === 0 && <div className="empty-state">У вас пока нет записей</div>}
+      <div className="filter-tabs">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            className={`filter-tab${filter === t.key ? " active" : ""}`}
+            onClick={() => setFilter(t.key)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-      {bookings.map((b) => {
+      {filtered.length === 0 && (
+        <div className="empty-state">
+          {bookings.length === 0 ? "У вас пока нет записей" : "Нет записей в этой категории"}
+        </div>
+      )}
+
+      {filtered.map((b) => {
         const cancelAllowed = b.status === "confirmed" && canCancel(b.slot.date, b.slot.start_time);
 
         return (
@@ -81,6 +122,15 @@ export default function MyBookingsPage() {
                   Отмена невозможна менее чем за {CANCEL_MIN_HOURS} ч.
                 </div>
               )
+            )}
+            {b.status === "completed" && (
+              <button
+                className="btn btn-sm"
+                style={{ marginTop: 8 }}
+                onClick={() => navigate("/booking", { state: { serviceId: b.service.id } })}
+              >
+                Записаться снова
+              </button>
             )}
           </div>
         );

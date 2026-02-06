@@ -146,6 +146,7 @@ class Booking(Base):
     )
     remind_before_hours: Mapped[int] = mapped_column(Integer, server_default="2")
     reminded: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    feedback_sent: Mapped[bool] = mapped_column(Boolean, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     client: Mapped["User"] = relationship(back_populates="bookings")
