@@ -34,7 +34,7 @@ export default function MyBookingsPage() {
   const [filter, setFilter] = useState<FilterTab>("all");
   const navigate = useNavigate();
 
-  const load = () => {
+  const reload = () => {
     setLoading(true);
     setError("");
     getMyBookings()
@@ -43,7 +43,12 @@ export default function MyBookingsPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, []);
+  useEffect(() => {
+    getMyBookings()
+      .then(setBookings)
+      .catch(() => setError("Не удалось загрузить записи"))
+      .finally(() => setLoading(false));
+  }, []);
 
   const filtered = useMemo(() => {
     switch (filter) {
@@ -63,7 +68,7 @@ export default function MyBookingsPage() {
     setError("");
     try {
       await cancelBooking(id);
-      load();
+      reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка отмены записи");
     }
