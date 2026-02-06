@@ -55,6 +55,7 @@ class User(Base):
     username: Mapped[str | None] = mapped_column(String(255))
     first_name: Mapped[str | None] = mapped_column(String(255))
     phone: Mapped[str | None] = mapped_column(String(20))
+    instagram: Mapped[str | None] = mapped_column(String(60), nullable=True)
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.client)
     consent_given: Mapped[bool] = mapped_column(Boolean, default=False)
     consent_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

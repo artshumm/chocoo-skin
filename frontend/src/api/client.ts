@@ -54,10 +54,10 @@ export const getFaq = () => request<FaqItem[]>("/api/faq");
 export const authUser = () =>
   request<User>("/api/users/auth", { method: "POST" });
 
-export const updateProfile = (first_name: string, phone: string, consent_given: boolean) =>
+export const updateProfile = (first_name: string, phone: string, consent_given: boolean, instagram?: string | null) =>
   request<User>("/api/users/profile", {
     method: "PATCH",
-    body: JSON.stringify({ first_name, phone, consent_given }),
+    body: JSON.stringify({ first_name, phone, consent_given, instagram: instagram || null }),
   });
 
 // Services

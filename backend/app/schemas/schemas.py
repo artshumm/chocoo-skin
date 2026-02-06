@@ -12,6 +12,7 @@ class UserResponse(BaseModel):
     username: str | None
     first_name: str | None
     phone: str | None
+    instagram: str | None = None
     consent_given: bool
     role: str
     created_at: datetime
@@ -24,6 +25,7 @@ class UserProfileUpdate(BaseModel):
 
     first_name: str = Field(..., min_length=1, max_length=100)
     phone: str = Field(..., pattern=r"^\+375\d{9}$")
+    instagram: str | None = Field(None, max_length=31, pattern=r"^@[A-Za-z0-9_.]+$")
     consent_given: bool
 
 

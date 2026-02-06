@@ -146,6 +146,17 @@ export default function AdminBookingsPage() {
             </div>
 
             <div className="detail-section">
+              <div className="detail-label">Instagram</div>
+              <div className="detail-value">
+                {selectedBooking.client.instagram ? (
+                  <a href={`https://instagram.com/${selectedBooking.client.instagram.replace("@", "")}`} target="_blank" rel="noopener noreferrer">
+                    {selectedBooking.client.instagram}
+                  </a>
+                ) : "—"}
+              </div>
+            </div>
+
+            <div className="detail-section">
               <div className="detail-label">Услуга</div>
               <div className="detail-value">{selectedBooking.service.name}</div>
             </div>

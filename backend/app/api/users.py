@@ -76,6 +76,7 @@ async def update_profile(
 
     user.first_name = data.first_name
     user.phone = data.phone
+    user.instagram = data.instagram
     user.consent_given = True
     user.consent_date = datetime.now(MINSK_TZ).replace(tzinfo=None)
     await db.commit()

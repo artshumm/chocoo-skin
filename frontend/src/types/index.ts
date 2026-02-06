@@ -4,6 +4,7 @@ export interface User {
   username: string | null;
   first_name: string | null;
   phone: string | null;
+  instagram: string | null;
   consent_given: boolean;
   role: string;
   created_at: string;

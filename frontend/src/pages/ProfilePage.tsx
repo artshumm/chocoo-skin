@@ -13,6 +13,7 @@ const PHONE_PREFIX = "+375";
 export default function ProfilePage({ user, onSave, isOnboarding }: Props) {
   const [name, setName] = useState(user.first_name || "");
   const [phone, setPhone] = useState(user.phone || PHONE_PREFIX);
+  const [instagram, setInstagram] = useState(user.instagram || "");
   const [consent, setConsent] = useState(user.consent_given);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -37,7 +38,7 @@ export default function ProfilePage({ user, onSave, isOnboarding }: Props) {
     setError("");
     setSuccess("");
     try {
-      const updated = await updateProfile(name.trim(), phone, true);
+      const updated = await updateProfile(name.trim(), phone, true, instagram || null);
       setSuccess("Данные сохранены");
       onSave(updated);
     } catch (e) {
@@ -83,6 +84,22 @@ export default function ProfilePage({ user, onSave, isOnboarding }: Props) {
           {phone.length > 4 && !isPhoneValid && (
             <div className="profile-hint">Формат: +375XXXXXXXXX (9 цифр после +375)</div>
           )}
+        </div>
+
+        <div>
+          <div className="profile-label">Instagram (необязательно)</div>
+          <input
+            className="profile-input"
+            type="text"
+            placeholder="@username"
+            value={instagram}
+            onChange={(e) => {
+              let v = e.target.value.replace(/[^A-Za-z0-9_.@]/g, "");
+              if (v && !v.startsWith("@")) v = "@" + v;
+              setInstagram(v);
+            }}
+            maxLength={31}
+          />
         </div>
 
         <label className="consent-label">
