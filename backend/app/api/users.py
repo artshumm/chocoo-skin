@@ -25,6 +25,11 @@ async def auth_user(data: UserAuth, db: AsyncSession = Depends(get_db)):
         if data.first_name and user.first_name != data.first_name:
             user.first_name = data.first_name
             changed = True
+        # Синхронизируем роль с ADMIN_IDS при каждом входе
+        expected_role = UserRole.admin if data.telegram_id in settings.admin_id_list else UserRole.client
+        if user.role != expected_role:
+            user.role = expected_role
+            changed = True
         if changed:
             await db.commit()
             await db.refresh(user)
