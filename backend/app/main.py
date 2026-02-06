@@ -21,7 +21,6 @@ from app.bot.handlers import router as bot_router
 from app.bot.scheduler import run_scheduler
 from app.core.config import settings
 from app.core.database import engine, get_db
-from app.models.models import Base
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -37,11 +36,8 @@ async def start_bot() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: create tables + start bot polling
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("Database tables created")
-
+    # Startup: start bot polling + scheduler
+    # DB schema managed by Alembic (alembic upgrade head)
     bot_task = asyncio.create_task(start_bot())
     scheduler_task = asyncio.create_task(run_scheduler())
     yield
