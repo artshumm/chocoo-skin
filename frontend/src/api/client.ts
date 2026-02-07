@@ -105,7 +105,7 @@ export const generateSlots = (
       start_minute: startMinute,
       end_hour: endHour,
       end_minute: endMinute,
-      interval_minutes: 30,
+      interval_minutes: 20,
     }),
   });
 
