@@ -12,7 +12,7 @@ from app.schemas.schemas import SlotCreate, SlotResponse, SlotUpdate
 router = APIRouter(prefix="/api/slots", tags=["slots"])
 
 MINSK_TZ = timezone(timedelta(hours=3))
-SLOT_CUTOFF_MINUTES = 30
+SLOT_CUTOFF_MINUTES = 60
 
 
 @router.get("/", response_model=list[SlotResponse])
@@ -75,7 +75,7 @@ async def generate_slots(
     _admin: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Админ генерирует слоты на день (например, с 9:00 до 21:00 по 30 мин)."""
+    """Админ генерирует слоты на день (например, с 9:00 до 21:00 по 20 мин)."""
     # Нельзя генерировать слоты на прошедшие даты
     now_minsk = datetime.now(MINSK_TZ)
     if data.date < now_minsk.date():

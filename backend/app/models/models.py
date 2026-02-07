@@ -101,7 +101,7 @@ class Service(Base):
     name: Mapped[str] = mapped_column(String(255))
     short_description: Mapped[str] = mapped_column(Text, default="")
     description: Mapped[str] = mapped_column(Text, default="")
-    duration_minutes: Mapped[int] = mapped_column(Integer, default=30)
+    duration_minutes: Mapped[int] = mapped_column(Integer, default=20)
     price: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -182,5 +182,5 @@ class ScheduleTemplate(Base):
     day_of_week: Mapped[int] = mapped_column(SmallInteger)  # 0=Mon .. 6=Sun
     start_time: Mapped[time] = mapped_column(Time)
     end_time: Mapped[time] = mapped_column(Time)
-    interval_minutes: Mapped[int] = mapped_column(Integer, default=30)
+    interval_minutes: Mapped[int] = mapped_column(Integer, default=20)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

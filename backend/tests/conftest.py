@@ -115,7 +115,7 @@ async def seed_service(db):
         name="Автозагар",
         short_description="Спрей-загар",
         description="Профессиональный spray tan",
-        duration_minutes=30,
+        duration_minutes=20,
         price=50.00,
         is_active=True,
     )
@@ -127,11 +127,11 @@ async def seed_service(db):
 
 @pytest_asyncio.fixture
 async def seed_slot(db):
-    """Slot far in the future (2026-12-25 10:00-10:30)."""
+    """Slot far in the future (2026-12-25 10:00-10:20)."""
     slot = Slot(
         date=date(2026, 12, 25),
         start_time=time(10, 0),
-        end_time=time(10, 30),
+        end_time=time(10, 20),
         status=SlotStatus.available,
     )
     db.add(slot)

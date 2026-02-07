@@ -10,7 +10,7 @@ router = Router()
 @router.message(CommandStart())
 async def cmd_start(message: Message) -> None:
     text = (
-        "Chocoo Skin - Салон загара\n\n"
+        "Chocoo Skin - Студия загара\n\n"
         "Добро пожаловать! Здесь вы можете записаться на сеанс загара."
     )
 

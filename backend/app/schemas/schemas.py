@@ -52,7 +52,7 @@ class ServiceCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     short_description: str = Field(default="", max_length=500)
     description: str = Field(default="", max_length=2000)
-    duration_minutes: int = Field(default=30, ge=10, le=480)
+    duration_minutes: int = Field(default=20, ge=10, le=480)
     price: float = Field(..., gt=0, le=999999.99)
     is_active: bool = True
 
@@ -101,7 +101,7 @@ class SlotCreate(BaseModel):
     start_minute: int = Field(default=30, ge=0, le=59)
     end_hour: int = Field(default=21, ge=1, le=23)
     end_minute: int = Field(default=0, ge=0, le=59)
-    interval_minutes: int = Field(default=30, ge=10, le=120)
+    interval_minutes: int = Field(default=20, ge=10, le=120)
 
     @model_validator(mode="after")
     def validate_time_range(self):
@@ -208,7 +208,7 @@ class ScheduleTemplateItem(BaseModel):
     day_of_week: int = Field(..., ge=0, le=6, description="0=Пн..6=Вс")
     start_time: time
     end_time: time
-    interval_minutes: int = Field(default=30, ge=10, le=120)
+    interval_minutes: int = Field(default=20, ge=10, le=120)
     is_active: bool = True
 
     @model_validator(mode="after")

@@ -41,13 +41,13 @@ async def test_generate_slots(admin_client):
             "start_minute": 0,
             "end_hour": 11,
             "end_minute": 0,
-            "interval_minutes": 30,
+            "interval_minutes": 20,
         },
     )
     assert r.status_code == 200
     data = r.json()
-    # 9:00-11:00 with 30min interval = 4 slots
-    assert len(data) == 4
+    # 9:00-11:00 with 20min interval = 6 slots
+    assert len(data) == 6
     assert data[0]["start_time"] == "09:00:00"
     assert data[-1]["end_time"] == "11:00:00"
 

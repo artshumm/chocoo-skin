@@ -9,7 +9,7 @@ async def test_get_salon_default(client):
     assert r.status_code == 200
     data = r.json()
     assert data["name"] == "Chocoo Skin"
-    assert data["description"] == "Салон загара"
+    assert data["description"] == "Студия загара"
 
 
 async def test_get_salon_with_data(client, seed_salon):

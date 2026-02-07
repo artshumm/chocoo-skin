@@ -57,11 +57,11 @@ async def create_booking(
     if slot.status != SlotStatus.available:
         raise HTTPException(status_code=400, detail="Слот уже занят или заблокирован")
 
-    # Проверка: минимум 30 минут до начала слота
+    # Проверка: минимум 1 час до начала слота
     now_minsk = datetime.now(MINSK_TZ).replace(tzinfo=None)
     slot_dt = datetime.combine(slot.date, slot.start_time)
-    if slot_dt - now_minsk < timedelta(minutes=30):
-        raise HTTPException(status_code=400, detail="Запись возможна минимум за 30 минут до начала")
+    if slot_dt - now_minsk < timedelta(hours=1):
+        raise HTTPException(status_code=400, detail="Запись возможна минимум за 1 час до начала")
 
     # Создаём запись
     booking = Booking(
