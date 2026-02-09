@@ -13,7 +13,7 @@ from app.bot.notifications import (
     notify_client_booking_confirmed,
 )
 from app.core.database import get_db
-from app.models.models import Booking, BookingStatus, Service, Slot, SlotStatus, User
+from app.models.models import Booking, BookingStatus, SalonInfo, Service, Slot, SlotStatus, User
 from app.schemas.schemas import BookingCreate, BookingResponse
 
 router = APIRouter(prefix="/api/bookings", tags=["bookings"])
@@ -98,6 +98,10 @@ async def create_booking(
         slot_time=booking.slot.start_time.strftime("%H:%M"),
     )
 
+    # Загружаем адрес салона для уведомления
+    salon_result = await db.execute(select(SalonInfo).limit(1))
+    salon = salon_result.scalar_one_or_none()
+
     # Подтверждение клиенту
     await notify_client_booking_confirmed(
         telegram_id=booking.client.telegram_id,
@@ -105,6 +109,8 @@ async def create_booking(
         slot_date=str(booking.slot.date),
         slot_time=booking.slot.start_time.strftime("%H:%M"),
         remind_before_hours=booking.remind_before_hours,
+        price=float(booking.service.price),
+        address=salon.address if salon else "",
     )
 
     return booking

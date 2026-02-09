@@ -9,7 +9,7 @@ from app.bot.bot_instance import bot
 from app.bot.notifications import notify_client_post_session
 from app.core.config import settings
 from app.core.database import async_session
-from app.models.models import Booking, BookingStatus, ScheduleTemplate, Slot, SlotStatus, User, UserRole
+from app.models.models import Booking, BookingStatus, SalonInfo, ScheduleTemplate, Slot, SlotStatus, User, UserRole
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +76,11 @@ async def _check_reminders() -> None:
         )
         bookings = result.scalars().all()
 
+        # Загружаем адрес салона (один раз для всех напоминаний)
+        salon_result = await db.execute(select(SalonInfo).limit(1))
+        salon = salon_result.scalar_one_or_none()
+        salon_address = salon.address if salon else ""
+
         for booking in bookings:
             slot = booking.slot
             appointment_dt = datetime.combine(
@@ -89,13 +94,16 @@ async def _check_reminders() -> None:
                 booking.reminded = True
                 await db.commit()
 
-                text = (
-                    f"⏰ Напоминание!\n\n"
-                    f"У вас запись сегодня:\n"
-                    f"Услуга: {booking.service.name}\n"
-                    f"Время: {slot.start_time.strftime('%H:%M')}\n\n"
-                    f"Ждём вас!"
-                )
+                lines = [
+                    f"⏰ Напоминание!\n",
+                    f"У вас запись сегодня:",
+                    f"Услуга: {booking.service.name}",
+                    f"Время: {slot.start_time.strftime('%H:%M')}",
+                ]
+                if salon_address:
+                    lines.append(f"\nАдрес: {salon_address}")
+                lines.append("\nЖдём вас!")
+                text = "\n".join(lines)
                 try:
                     await asyncio.wait_for(
                         bot.send_message(
