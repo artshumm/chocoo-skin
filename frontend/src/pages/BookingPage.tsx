@@ -41,6 +41,7 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
   const [showRegModal, setShowRegModal] = useState(false);
   const [regName, setRegName] = useState(user.first_name || "");
   const [regPhone, setRegPhone] = useState(user.phone || PHONE_PREFIX);
+  const [regInstagram, setRegInstagram] = useState(user.instagram || "");
   const [regConsent, setRegConsent] = useState(user.consent_given);
   const [regLoading, setRegLoading] = useState(false);
   const [regError, setRegError] = useState("");
@@ -130,12 +131,19 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
   const isPhoneValid = /^\+375\d{9}$/.test(regPhone);
   const canSaveReg = regName.trim().length > 0 && isPhoneValid && regConsent;
 
+  const handleInstagramChange = (val: string) => {
+    // Auto-add @ and allow only Latin, digits, dots, underscores
+    if (!val.startsWith("@")) val = "@" + val.replace(/^@*/, "");
+    setRegInstagram(val.replace(/[^@A-Za-z0-9_.]/g, "").slice(0, 31));
+  };
+
   const handleRegistrationComplete = async () => {
     if (!canSaveReg) return;
     setRegLoading(true);
     setRegError("");
     try {
-      const updated = await updateProfile(regName.trim(), regPhone, true);
+      const ig = regInstagram.length > 1 ? regInstagram : null;
+      const updated = await updateProfile(regName.trim(), regPhone, true, ig);
       onUserUpdate(updated);
       setShowRegModal(false);
       await doBook();
@@ -261,6 +269,18 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
                 {regPhone.length > 4 && !isPhoneValid && (
                   <div className="profile-hint">Формат: +375XXXXXXXXX (9 цифр после +375)</div>
                 )}
+              </div>
+
+              <div>
+                <div className="profile-label">Instagram (необязательно)</div>
+                <input
+                  className="profile-input"
+                  type="text"
+                  placeholder="@username"
+                  value={regInstagram}
+                  onChange={(e) => handleInstagramChange(e.target.value)}
+                  maxLength={31}
+                />
               </div>
 
               <label className="consent-label">

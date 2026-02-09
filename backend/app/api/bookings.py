@@ -96,6 +96,7 @@ async def create_booking(
         service_name=booking.service.name,
         slot_date=str(booking.slot.date),
         slot_time=booking.slot.start_time.strftime("%H:%M"),
+        instagram=booking.client.instagram,
     )
 
     # Загружаем адрес салона для уведомления
@@ -204,6 +205,7 @@ async def cancel_booking(
         service_name=booking.service.name,
         slot_date=str(booking.slot.date),
         slot_time=booking.slot.start_time.strftime("%H:%M"),
+        instagram=booking.client.instagram,
     )
 
     return booking
@@ -269,6 +271,7 @@ async def admin_cancel_booking(
         service_name=booking.service.name,
         slot_date=str(booking.slot.date),
         slot_time=booking.slot.start_time.strftime("%H:%M"),
+        instagram=booking.client.instagram,
     )
 
     return booking

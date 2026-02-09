@@ -32,6 +32,7 @@ def _format_client_info(
     first_name: str | None,
     username: str | None,
     phone: str | None,
+    instagram: str | None = None,
 ) -> str:
     """Форматирует информацию о клиенте для уведомлений админам."""
     # Имя (@username) или fallback
@@ -45,6 +46,8 @@ def _format_client_info(
         name_line = "Клиент: (не указан)"
 
     lines = [name_line]
+    if instagram:
+        lines.append(f"Instagram: {instagram}")
     if phone:
         lines.append(f"Телефон: {phone}")
 
@@ -58,9 +61,10 @@ async def notify_admins_new_booking(
     service_name: str,
     slot_date: str,
     slot_time: str,
+    instagram: str | None = None,
 ) -> None:
     """Уведомляет всех админов о новой записи."""
-    client_info = _format_client_info(first_name, username, phone)
+    client_info = _format_client_info(first_name, username, phone, instagram)
     text = (
         f"📋 Новая запись!\n\n"
         f"{client_info}\n"
@@ -78,9 +82,10 @@ async def notify_admins_cancelled_booking(
     service_name: str,
     slot_date: str,
     slot_time: str,
+    instagram: str | None = None,
 ) -> None:
     """Уведомляет всех админов об отмене записи."""
-    client_info = _format_client_info(first_name, username, phone)
+    client_info = _format_client_info(first_name, username, phone, instagram)
     text = (
         f"❌ Отмена записи\n\n"
         f"{client_info}\n"
