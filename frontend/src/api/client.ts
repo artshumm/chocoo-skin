@@ -73,14 +73,37 @@ export const updateProfile = (first_name: string, phone: string, consent_given: 
     body: JSON.stringify({ first_name, phone, consent_given, instagram: instagram || null }),
   });
 
-// Services
+// Services (cached for instant load on BookingPage)
+export const getServicesCached = () => cachedGet<Service[]>("/api/services/", "cache_services");
 export const getServices = () => request<Service[]>("/api/services/");
 
 // Slots
 export const getSlots = (date: string) =>
   request<Slot[]>(`/api/slots/?date=${date}`);
 
-// Slot availability (for calendar badges)
+// Slot availability (cached 5 min for calendar badges)
+const AVAIL_CACHE_TTL_MS = 5 * 60 * 1000;
+
+export function getSlotAvailabilityCached(from: string, to: string) {
+  const cacheKey = `cache_avail_${from}_${to}`;
+  const path = `/api/slots/availability?from=${from}&to=${to}`;
+  let cached: Record<string, number> | null = null;
+  try {
+    const raw = localStorage.getItem(cacheKey);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed._ts && Date.now() - parsed._ts < AVAIL_CACHE_TTL_MS) {
+        cached = parsed.data as Record<string, number>;
+      }
+    }
+  } catch { /* ignore */ }
+  const fresh = request<Record<string, number>>(path).then((data) => {
+    localStorage.setItem(cacheKey, JSON.stringify({ data, _ts: Date.now() }));
+    return data;
+  });
+  return { cached, fresh };
+}
+
 export const getSlotAvailability = (from: string, to: string) =>
   request<Record<string, number>>(`/api/slots/availability?from=${from}&to=${to}`);
 
@@ -90,6 +113,8 @@ export const createBooking = (service_id: number, slot_id: number, remind_before
     method: "POST",
     body: JSON.stringify({ service_id, slot_id, remind_before_hours }),
   });
+
+export const getMyBookingsCached = () => cachedGet<Booking[]>("/api/bookings/my", "cache_my_bookings");
 
 export const getMyBookings = () =>
   request<Booking[]>("/api/bookings/my");

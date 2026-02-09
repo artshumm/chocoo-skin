@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getSlotAvailability } from "../api/client";
+import { getSlotAvailabilityCached } from "../api/client";
 import { nowMinsk } from "../utils/timezone";
 
 interface Props {
@@ -70,14 +70,15 @@ export default function Calendar({ selectedDate, onSelect }: Props) {
   const todayStr = formatDate(todayReal);
   const maxStr = formatDate(maxDate);
 
-  // Slot availability counts per date
-  const [availability, setAvailability] = useState<Record<string, number>>({});
+  // Slot availability counts per date (stale-while-revalidate, 5 min TTL)
+  const [availResult] = useState(() => getSlotAvailabilityCached(todayStr, maxStr));
+  const [availability, setAvailability] = useState<Record<string, number>>(availResult.cached ?? {});
 
   useEffect(() => {
-    getSlotAvailability(todayStr, maxStr)
+    availResult.fresh
       .then(setAvailability)
       .catch(() => {});
-  }, [todayStr, maxStr]);
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="calendar">

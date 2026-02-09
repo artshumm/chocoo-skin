@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { getServices, getSlots, createBooking, updateProfile } from "../api/client";
+import { getServicesCached, getSlots, createBooking, updateProfile } from "../api/client";
 import type { Service, Slot, User } from "../types";
 import Calendar from "../components/Calendar";
 import TimeGrid from "../components/TimeGrid";
@@ -14,8 +14,19 @@ const PHONE_PREFIX = "+375";
 
 export default function BookingPage({ user, onUserUpdate }: Props) {
   const location = useLocation();
-  const [services, setServices] = useState<Service[]>([]);
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
+
+  // Pre-select service from "Записаться снова" navigation
+  const preSelectServiceId = (location.state as { serviceId?: number } | null)?.serviceId;
+
+  // Stale-while-revalidate: мгновенно показываем кешированные услуги
+  const [servicesResult] = useState(() => getServicesCached());
+  const [services, setServices] = useState<Service[]>(servicesResult.cached ?? []);
+  const [selectedService, setSelectedService] = useState<Service | null>(() => {
+    if (preSelectServiceId && servicesResult.cached) {
+      return servicesResult.cached.find((s) => s.id === preSelectServiceId) ?? null;
+    }
+    return null;
+  });
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
@@ -43,20 +54,20 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
     { value: 24, label: "24ч" },
   ];
 
-  // Pre-select service from "Записаться снова" navigation
-  const preSelectServiceId = (location.state as { serviceId?: number } | null)?.serviceId;
-
+  // Обновляем услуги из сети в фоне
   useEffect(() => {
-    getServices()
+    servicesResult.fresh
       .then((list) => {
         setServices(list);
-        if (preSelectServiceId) {
+        if (preSelectServiceId && !selectedService) {
           const found = list.find((s) => s.id === preSelectServiceId);
           if (found) setSelectedService(found);
         }
       })
-      .catch(() => setError("Не удалось загрузить услуги"));
-  }, [preSelectServiceId]);
+      .catch(() => {
+        if (services.length === 0) setError("Не удалось загрузить услуги");
+      });
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!selectedDate) return;

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getMyBookings, cancelBooking } from "../api/client";
+import { getMyBookingsCached, cancelBooking } from "../api/client";
 import type { Booking } from "../types";
 import { msUntilSlotMinsk } from "../utils/timezone";
 
@@ -28,27 +28,23 @@ function canCancel(slotDate: string, slotTime: string): boolean {
 }
 
 export default function MyBookingsPage() {
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Stale-while-revalidate: мгновенно показываем кешированные записи
+  const [bookingsResult] = useState(() => getMyBookingsCached());
+  const [bookings, setBookings] = useState<Booking[]>(bookingsResult.cached ?? []);
+  const [refreshing, setRefreshing] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<FilterTab>("all");
   const navigate = useNavigate();
 
-  const reload = () => {
-    setLoading(true);
-    setError("");
-    getMyBookings()
-      .then(setBookings)
-      .catch(() => setError("Не удалось загрузить записи"))
-      .finally(() => setLoading(false));
-  };
-
+  // Обновляем из сети в фоне
   useEffect(() => {
-    getMyBookings()
+    bookingsResult.fresh
       .then(setBookings)
-      .catch(() => setError("Не удалось загрузить записи"))
-      .finally(() => setLoading(false));
-  }, []);
+      .catch(() => {
+        if (bookings.length === 0) setError("Не удалось загрузить записи");
+      })
+      .finally(() => setRefreshing(false));
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtered = useMemo(() => {
     switch (filter) {
@@ -66,15 +62,27 @@ export default function MyBookingsPage() {
   const handleCancel = async (id: number) => {
     if (!window.confirm("Вы уверены, что хотите отменить запись?")) return;
     setError("");
+
+    // Оптимистичное обновление: сразу меняем статус в UI
+    setBookings((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, status: "cancelled" } : b))
+    );
+
     try {
       await cancelBooking(id);
-      reload();
     } catch (e) {
+      // Откатываем при ошибке
+      setBookings((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, status: "confirmed" } : b))
+      );
       setError(e instanceof Error ? e.message : "Ошибка отмены записи");
     }
   };
 
-  if (loading) return <div className="loading">Загрузка...</div>;
+  // Показываем данные сразу (из кеша), а не белый экран
+  const hasData = bookings.length > 0 || !refreshing;
+
+  if (!hasData) return <div className="loading">Загрузка...</div>;
 
   return (
     <div className="page">

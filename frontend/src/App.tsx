@@ -8,9 +8,8 @@ import HomePage from "./pages/HomePage";
 import BookingPage from "./pages/BookingPage";
 import MyBookingsPage from "./pages/MyBookingsPage";
 import ProfilePage from "./pages/ProfilePage";
-import AdminBookingsPage from "./pages/AdminBookingsPage";
-
 // Admin-only pages — lazy loaded (code splitting)
+const AdminBookingsPage = lazy(() => import("./pages/AdminBookingsPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const StatsPage = lazy(() => import("./pages/StatsPage"));
 const AdminSettingsPage = lazy(() => import("./pages/AdminSettingsPage"));
@@ -46,7 +45,7 @@ export default function App() {
         />
         <Route
           path="/my"
-          element={isAdmin ? <AdminBookingsPage /> : <MyBookingsPage />}
+          element={isAdmin ? <Suspense fallback={AdminFallback}><AdminBookingsPage /></Suspense> : <MyBookingsPage />}
         />
         <Route
           path="/profile"
