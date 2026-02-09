@@ -8,6 +8,15 @@ logger = logging.getLogger(__name__)
 
 SEND_TIMEOUT = 10.0  # секунд на одно сообщение
 
+# WARNING: все bot.send_message вызовы используют plain text (без parse_mode).
+# Если когда-либо добавите parse_mode="HTML", ВСЕ user-controlled строки
+# (first_name, username, service_name) ОБЯЗАНЫ быть пропущены через _escape_html.
+
+
+def _escape_html(text: str) -> str:
+    """Escape HTML entities for safe use in Telegram messages with parse_mode=HTML."""
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
 PREPARATION_TEXT = (
     "🔹 накануне вечером или утром (но не менее чем за 6 часов до процедуры) "
     "распарить кожу и проскрабировать все тело, можно использовать мочалку или скраб, "
@@ -141,8 +150,8 @@ async def notify_client_booking_cancelled_by_admin(
 async def notify_client_post_session(
     telegram_id: int,
     service_name: str,
-) -> None:
-    """Отправляет клиенту сообщение после сеанса (спасибо + повторная запись)."""
+) -> bool:
+    """Отправляет клиенту сообщение после сеанса. Возвращает True при успехе."""
     text = (
         f"Спасибо за визит! 🙏\n\n"
         f"Надеемся, вам понравился сеанс «{service_name}».\n"
@@ -153,8 +162,10 @@ async def notify_client_post_session(
             bot.send_message(chat_id=telegram_id, text=text),
             timeout=SEND_TIMEOUT,
         )
+        return True
     except Exception as e:
         logger.warning("Failed to send post-session msg to %s: %s", telegram_id, e)
+        return False
 
 
 async def _send_to_admins(text: str) -> None:

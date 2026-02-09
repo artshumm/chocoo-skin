@@ -214,6 +214,7 @@ async def _auto_complete_bookings() -> None:
                 and_(
                     Booking.status == BookingStatus.confirmed,
                     Slot.date <= now_minsk.date(),
+                    Slot.date >= now_minsk.date() - timedelta(days=7),
                 )
             )
             .options(
@@ -256,6 +257,7 @@ async def _check_post_session_feedback() -> None:
                     Booking.status == BookingStatus.completed,
                     Booking.feedback_sent == False,
                     Slot.date <= now_minsk.date(),
+                    Slot.date >= now_minsk.date() - timedelta(days=7),
                 )
             )
             .options(
@@ -274,16 +276,16 @@ async def _check_post_session_feedback() -> None:
             ) + timedelta(minutes=booking.service.duration_minutes)
 
             if now_minsk >= end_dt + timedelta(hours=FEEDBACK_DELAY_HOURS):
-                booking.feedback_sent = True
-                await db.commit()
-
-                await notify_client_post_session(
+                sent = await notify_client_post_session(
                     telegram_id=booking.client.telegram_id,
                     service_name=booking.service.name,
                 )
-                sent_count += 1
+                if sent:
+                    booking.feedback_sent = True
+                    sent_count += 1
 
         if sent_count:
+            await db.commit()
             logger.info("Sent %d post-session feedback messages", sent_count)
 
 
@@ -318,6 +320,7 @@ async def _auto_generate_slots() -> None:
         templates = {t.day_of_week: t for t in result.scalars().all()}
         if not templates:
             _last_autogen_date = today_str
+            logger.warning("No active schedule templates — auto-slot generation skipped")
             return
 
         today = now_minsk.date()

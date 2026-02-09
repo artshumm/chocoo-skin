@@ -31,12 +31,25 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
-// --- Stale-while-revalidate cache ---
+// --- Stale-while-revalidate cache (TTL: 1 hour) ---
+const CACHE_TTL_MS = 60 * 60 * 1000;
+
 function cachedGet<T>(path: string, cacheKey: string): { cached: T | null; fresh: Promise<T> } {
-  const raw = localStorage.getItem(cacheKey);
-  const cached = raw ? (JSON.parse(raw) as T) : null;
+  let cached: T | null = null;
+  try {
+    const raw = localStorage.getItem(cacheKey);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed._ts && Date.now() - parsed._ts < CACHE_TTL_MS) {
+        cached = parsed.data as T;
+      } else if (!parsed._ts) {
+        // Old format (no TTL) — use as-is, will be replaced on fresh fetch
+        cached = parsed as T;
+      }
+    }
+  } catch { /* ignore corrupt cache */ }
   const fresh = request<T>(path).then((data) => {
-    localStorage.setItem(cacheKey, JSON.stringify(data));
+    localStorage.setItem(cacheKey, JSON.stringify({ data, _ts: Date.now() }));
     return data;
   });
   return { cached, fresh };

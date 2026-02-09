@@ -43,6 +43,11 @@ async def get_slot_availability(
     if (date_to - date_from).days > 31:
         raise HTTPException(status_code=400, detail="Максимальный диапазон — 31 день")
 
+    # Не позволяем запрашивать прошлые даты
+    today = datetime.now(MINSK_TZ).date()
+    if date_from < today:
+        date_from = today
+
     query = (
         select(Slot.date, func.count(Slot.id))
         .where(
