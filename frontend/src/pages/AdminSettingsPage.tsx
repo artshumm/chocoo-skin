@@ -64,15 +64,17 @@ function SalonSection() {
             ["phone", "Телефон"],
             ["working_hours_text", "Часы работы"],
             ["instagram", "Instagram"],
+            ["preparation_text", "Рекомендации по подготовке"],
           ] as const
         ).map(([key, label]) => (
           <div key={key} className="cms-field">
             <label className="cms-label">{label}</label>
-            {key === "description" ? (
+            {key === "description" || key === "preparation_text" ? (
               <textarea
                 className="cms-input cms-textarea"
                 value={form[key] || ""}
                 onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                rows={key === "preparation_text" ? 6 : undefined}
               />
             ) : (
               <input

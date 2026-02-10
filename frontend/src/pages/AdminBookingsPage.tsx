@@ -26,6 +26,18 @@ function formatDateLabel(dateStr: string): string {
   return `${d} ${months[dt.getUTCMonth()]}, ${days[dt.getUTCDay()]}`;
 }
 
+/** Конвертирует UTC datetime из backend в строку Минск (UTC+3) */
+function formatCreatedAtMinsk(isoStr: string): string {
+  const utcMs = new Date(isoStr + "Z").getTime();
+  const minskMs = utcMs + 3 * 60 * 60 * 1000;
+  const d = new Date(minskMs);
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const min = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${dd}.${mm}.${d.getUTCFullYear()} ${hh}:${min}`;
+}
+
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -189,7 +201,7 @@ export default function AdminBookingsPage() {
 
             <div className="detail-section">
               <div className="detail-label">Создана</div>
-              <div className="detail-value">{new Date(selectedBooking.created_at).toLocaleString("ru-RU")}</div>
+              <div className="detail-value">{formatCreatedAtMinsk(selectedBooking.created_at)}</div>
             </div>
 
             <div style={{ marginTop: 16, display: "flex", gap: 8 }}>

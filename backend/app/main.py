@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
     logger.info("Shutdown complete")
 
 
-app = FastAPI(title="Chocoo Skin API", lifespan=lifespan)
+app = FastAPI(title=f"{settings.salon_name} API", lifespan=lifespan)
 
 # CORS: разрешаем только фронтенд из MINI_APP_URL + localhost для разработки
 _cors_origins: list[str] = []
@@ -96,7 +96,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.get("/")
 async def root():
-    return {"status": "ok", "project": "Chocoo Skin"}
+    return {"status": "ok", "project": settings.salon_name}
 
 
 @app.get("/health")

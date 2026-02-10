@@ -8,17 +8,17 @@ async def test_get_salon_default(client):
     r = await client.get("/api/salon")
     assert r.status_code == 200
     data = r.json()
-    assert data["name"] == "Chocoo Skin"
-    assert data["description"] == "Студия загара"
+    assert data["name"] == "Салон"
+    assert data["description"] == ""
 
 
 async def test_get_salon_with_data(client, seed_salon):
     r = await client.get("/api/salon")
     assert r.status_code == 200
     data = r.json()
-    assert data["name"] == "Chocoo Skin"
+    assert data["name"] == "Test Salon"
     assert data["address"] == "ул. Тестовая, 1"
-    assert data["instagram"] == "@chocoo"
+    assert data["instagram"] == "@testsalon"
 
 
 async def test_update_salon_creates_if_missing(admin_client):
@@ -37,7 +37,7 @@ async def test_update_salon_partial(admin_client, seed_salon):
     assert r.status_code == 200
     data = r.json()
     assert data["phone"] == "+375291111111"
-    assert data["name"] == "Chocoo Skin"  # unchanged
+    assert data["name"] == "Test Salon"  # unchanged
     assert data["address"] == "ул. Тестовая, 1"  # unchanged
 
 

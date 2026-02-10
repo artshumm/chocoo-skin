@@ -71,12 +71,13 @@ class SalonInfo(Base):
     __tablename__ = "salon_info"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(255), default="Chocoo Skin")
+    name: Mapped[str] = mapped_column(String(255), default="Салон")
     description: Mapped[str] = mapped_column(Text, default="")
     address: Mapped[str] = mapped_column(String(500), default="")
     phone: Mapped[str] = mapped_column(String(20), default="")
     working_hours_text: Mapped[str] = mapped_column(String(500), default="")
     instagram: Mapped[str] = mapped_column(String(500), default="")
+    preparation_text: Mapped[str] = mapped_column(Text, default="")
 
 
 # ── 3. FAQ ──

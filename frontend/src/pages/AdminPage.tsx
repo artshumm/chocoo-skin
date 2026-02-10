@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { getAllSlots, generateSlots, updateSlot, getAllBookings, adminCancelBooking } from "../api/client";
-import type { Slot, Booking } from "../types";
+import { getAllSlots, generateSlots, updateSlot, getAllBookings, adminCancelBooking, getScheduleTemplates } from "../api/client";
+import type { Slot, Booking, ScheduleTemplate } from "../types";
 import Calendar from "../components/Calendar";
 import TimeGrid from "../components/TimeGrid";
 
@@ -10,22 +10,27 @@ function getDayOfWeek(dateStr: string): number {
   return new Date(y, m - 1, d).getDay();
 }
 
-function getScheduleForDate(dateStr: string) {
+function getTemplateForDate(dateStr: string, templates: ScheduleTemplate[]): ScheduleTemplate | null {
   const dow = getDayOfWeek(dateStr);
-  if (dow === 0) return { isSunday: true, label: "", startHour: 0, startMinute: 0, endHour: 0, endMinute: 0 };
-  if (dow === 6) return { isSunday: false, label: "8:30-16:00", startHour: 8, startMinute: 30, endHour: 16, endMinute: 0 };
-  return { isSunday: false, label: "8:30-21:00", startHour: 8, startMinute: 30, endHour: 21, endMinute: 0 };
+  return templates.find(t => t.day_of_week === dow && t.is_active) || null;
 }
+
+const DEFAULT_START_H = 8, DEFAULT_START_M = 30, DEFAULT_END_H = 21, DEFAULT_END_M = 0, DEFAULT_INTERVAL = 20;
 
 export default function AdminPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [templates, setTemplates] = useState<ScheduleTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+
+  useEffect(() => {
+    getScheduleTemplates().then(setTemplates).catch(() => {});
+  }, []);
 
   const loadSlots = async (date: string) => {
     try {
@@ -36,9 +41,9 @@ export default function AdminPage() {
     }
   };
 
-  const loadBookings = async () => {
+  const loadBookings = async (date: string) => {
     try {
-      const data = await getAllBookings();
+      const data = await getAllBookings(date);
       setBookings(data);
     } catch {
       setError("Не удалось загрузить записи");
@@ -48,28 +53,23 @@ export default function AdminPage() {
   useEffect(() => {
     if (selectedDate) {
       loadSlots(selectedDate);
+      loadBookings(selectedDate);
     }
   }, [selectedDate]);
 
-  useEffect(() => {
-    loadBookings();
-  }, []);
-
   const handleGenerate = async () => {
     if (!selectedDate) return;
-    const schedule = getScheduleForDate(selectedDate);
-    if (schedule.isSunday) return;
+    const tpl = getTemplateForDate(selectedDate, templates);
+    const startH = tpl ? parseInt(tpl.start_time.split(":")[0]) : DEFAULT_START_H;
+    const startM = tpl ? parseInt(tpl.start_time.split(":")[1]) : DEFAULT_START_M;
+    const endH = tpl ? parseInt(tpl.end_time.split(":")[0]) : DEFAULT_END_H;
+    const endM = tpl ? parseInt(tpl.end_time.split(":")[1]) : DEFAULT_END_M;
+    const interval = tpl ? tpl.interval_minutes : DEFAULT_INTERVAL;
 
     setLoading(true);
     setError("");
     try {
-      await generateSlots(
-        selectedDate,
-        schedule.startHour,
-        schedule.startMinute,
-        schedule.endHour,
-        schedule.endMinute,
-      );
+      await generateSlots(selectedDate, startH, startM, endH, endM, interval);
       setSuccess(`Слоты на ${selectedDate} созданы`);
       await loadSlots(selectedDate);
     } catch (e) {
@@ -101,8 +101,10 @@ export default function AdminPage() {
     try {
       await adminCancelBooking(bookingId);
       setSuccess("Запись отменена");
-      await loadBookings();
-      if (selectedDate) await loadSlots(selectedDate);
+      if (selectedDate) {
+        await loadBookings(selectedDate);
+        await loadSlots(selectedDate);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка отмены");
     } finally {
@@ -110,12 +112,12 @@ export default function AdminPage() {
     }
   };
 
-  // Filter bookings for selected date
-  const dateBookings = bookings.filter(
-    (b) => b.slot.date === selectedDate && b.status !== "cancelled"
-  );
+  const dateBookings = bookings.filter((b) => b.status !== "cancelled");
 
-  const schedule = selectedDate ? getScheduleForDate(selectedDate) : null;
+  const tpl = selectedDate ? getTemplateForDate(selectedDate, templates) : null;
+  const scheduleLabel = tpl
+    ? `${tpl.start_time.slice(0, 5)}-${tpl.end_time.slice(0, 5)}`
+    : `${DEFAULT_START_H}:${String(DEFAULT_START_M).padStart(2, "0")}-${DEFAULT_END_H}:${String(DEFAULT_END_M).padStart(2, "0")}`;
 
   return (
     <div className="page">
@@ -126,7 +128,7 @@ export default function AdminPage() {
 
       <Calendar selectedDate={selectedDate} onSelect={(d) => { setSelectedDate(d); setSuccess(""); setError(""); }} />
 
-      {selectedDate && schedule && (
+      {selectedDate && (
         <>
           <div className="admin-legend">
             <span><span className="legend-dot green" /> Свободен</span>
@@ -134,17 +136,13 @@ export default function AdminPage() {
             <span><span className="legend-dot red" /> Заблокирован</span>
           </div>
 
-          {schedule.isSunday ? (
-            <div className="empty-state" style={{ padding: "20px 0", textAlign: "center" }}>
-              Воскресенье — выходной день
-            </div>
-          ) : slots.length === 0 ? (
+          {slots.length === 0 ? (
             <div style={{ textAlign: "center", marginBottom: 16 }}>
               <div className="empty-state" style={{ padding: "20px 0" }}>
                 Слоты на {selectedDate} не созданы
               </div>
               <button className="btn" onClick={handleGenerate} disabled={loading}>
-                {loading ? "Создаю..." : `Создать слоты (${schedule.label})`}
+                {loading ? "Создаю..." : `Создать слоты (${scheduleLabel})`}
               </button>
             </div>
           ) : (

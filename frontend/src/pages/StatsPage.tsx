@@ -39,7 +39,7 @@ export default function StatsPage() {
   // Load bookings once
   useEffect(() => {
     setLoading(true);
-    getAllBookings()
+    getAllBookings(undefined, undefined, 500)
       .then(setBookings)
       .catch(() => setError("Ошибка загрузки записей"))
       .finally(() => setLoading(false));

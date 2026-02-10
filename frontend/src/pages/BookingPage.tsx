@@ -10,8 +10,6 @@ interface Props {
   onUserUpdate: (u: User) => void;
 }
 
-const PHONE_PREFIX = "+375";
-
 export default function BookingPage({ user, onUserUpdate }: Props) {
   const location = useLocation();
 
@@ -40,7 +38,7 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
   // Registration modal state
   const [showRegModal, setShowRegModal] = useState(false);
   const [regName, setRegName] = useState(user.first_name || "");
-  const [regPhone, setRegPhone] = useState(user.phone || PHONE_PREFIX);
+  const [regPhone, setRegPhone] = useState(user.phone || "+");
   const [regInstagram, setRegInstagram] = useState(user.instagram || "");
   const [regConsent, setRegConsent] = useState(user.consent_given);
   const [regLoading, setRegLoading] = useState(false);
@@ -121,14 +119,12 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
   };
 
   const handlePhoneChange = (val: string) => {
-    if (!val.startsWith(PHONE_PREFIX)) {
-      val = PHONE_PREFIX + val.replace(/^\+?3?7?5?/, "");
-    }
-    const afterPrefix = val.slice(PHONE_PREFIX.length).replace(/\D/g, "");
-    setRegPhone(PHONE_PREFIX + afterPrefix.slice(0, 9));
+    if (!val.startsWith("+")) val = "+" + val.replace(/^\+*/, "");
+    const digits = val.slice(1).replace(/\D/g, "");
+    setRegPhone("+" + digits.slice(0, 15));
   };
 
-  const isPhoneValid = /^\+375\d{9}$/.test(regPhone);
+  const isPhoneValid = /^\+\d{7,15}$/.test(regPhone);
   const canSaveReg = regName.trim().length > 0 && isPhoneValid && regConsent;
 
   const handleInstagramChange = (val: string) => {
@@ -260,14 +256,14 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
                 <input
                   className="profile-input"
                   type="tel"
-                  placeholder="+375XXXXXXXXX"
+                  placeholder="+XXXXXXXXXXX"
                   value={regPhone}
                   onChange={(e) => handlePhoneChange(e.target.value)}
-                  maxLength={13}
+                  maxLength={16}
                   inputMode="tel"
                 />
                 {regPhone.length > 4 && !isPhoneValid && (
-                  <div className="profile-hint">Формат: +375XXXXXXXXX (9 цифр после +375)</div>
+                  <div className="profile-hint">Формат: +XXXXXXXXXXX (7-15 цифр после +)</div>
                 )}
               </div>
 

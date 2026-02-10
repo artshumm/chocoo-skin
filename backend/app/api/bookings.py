@@ -112,6 +112,7 @@ async def create_booking(
         remind_before_hours=booking.remind_before_hours,
         price=float(booking.service.price),
         address=salon.address if salon else "",
+        preparation_text=salon.preparation_text if salon else "",
     )
 
     return booking

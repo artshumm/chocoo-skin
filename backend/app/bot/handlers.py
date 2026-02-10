@@ -10,8 +10,8 @@ router = Router()
 @router.message(CommandStart())
 async def cmd_start(message: Message) -> None:
     text = (
-        "Chocoo Skin - Студия загара\n\n"
-        "Добро пожаловать! Здесь вы можете записаться на сеанс загара."
+        f"{settings.salon_name}\n\n"
+        "Добро пожаловать! Нажмите кнопку ниже для записи."
     )
 
     if settings.mini_app_url:

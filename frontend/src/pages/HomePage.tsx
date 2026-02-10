@@ -24,7 +24,7 @@ export default function HomePage() {
   return (
     <div className="page">
       <div className="salon-card">
-        <h1>{salon?.name ?? "Chocoo Skin"}</h1>
+        <h1>{salon?.name ?? "Салон"}</h1>
         {salon?.description && <p className="description">{salon.description}</p>}
         {salon?.address && (
           <div className="info-row">
@@ -45,7 +45,11 @@ export default function HomePage() {
         {salon?.instagram && (
           <div className="info-row">
             <span className="label">Instagram:</span>{" "}
-            <a href={salon.instagram} target="_blank" rel="noopener noreferrer">@chocoo.skin</a>
+            <a href={salon.instagram} target="_blank" rel="noopener noreferrer">
+              {salon.instagram.includes("instagram.com/")
+                ? "@" + salon.instagram.split("instagram.com/")[1].replace(/\/$/, "")
+                : salon.instagram}
+            </a>
           </div>
         )}
       </div>

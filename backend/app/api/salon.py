@@ -16,8 +16,8 @@ async def get_salon_info(db: AsyncSession = Depends(get_db)):
     salon = result.scalar_one_or_none()
     if not salon:
         return {
-            "name": "Chocoo Skin",
-            "description": "Студия загара",
+            "name": "Салон",
+            "description": "",
             "address": "",
             "phone": "",
             "working_hours_text": "",

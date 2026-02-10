@@ -24,7 +24,7 @@ class UserProfileUpdate(BaseModel):
     """Клиент обновляет профиль."""
 
     first_name: str = Field(..., min_length=1, max_length=100)
-    phone: str = Field(..., pattern=r"^\+375\d{9}$")
+    phone: str = Field(..., pattern=r"^\+\d{7,15}$")
     instagram: str | None = Field(None, max_length=31, pattern=r"^@[A-Za-z0-9_.]+$")
     consent_given: bool
 
@@ -41,6 +41,7 @@ class SalonUpdate(BaseModel):
     phone: str | None = Field(None, max_length=20)
     working_hours_text: str | None = Field(None, max_length=500)
     instagram: str | None = Field(None, max_length=500)
+    preparation_text: str | None = Field(None, max_length=5000)
 
 
 # ── Services ──

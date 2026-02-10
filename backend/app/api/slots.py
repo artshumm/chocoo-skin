@@ -150,12 +150,16 @@ async def update_slot(
     # Нельзя сделать доступным прошедший слот
     if data.status == "available":
         now_minsk = datetime.now(MINSK_TZ)
-        if slot.date == now_minsk.date():
-            if slot.start_time <= now_minsk.time():
-                raise HTTPException(
-                    status_code=400,
-                    detail="Нельзя открыть слот, время которого уже прошло",
-                )
+        if slot.date < now_minsk.date():
+            raise HTTPException(
+                status_code=400,
+                detail="Нельзя открыть слот на прошедшую дату",
+            )
+        if slot.date == now_minsk.date() and slot.start_time <= now_minsk.time():
+            raise HTTPException(
+                status_code=400,
+                detail="Нельзя открыть слот, время которого уже прошло",
+            )
 
     slot.status = SlotStatus(data.status)
     await db.commit()

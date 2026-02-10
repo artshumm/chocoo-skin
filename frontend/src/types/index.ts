@@ -46,6 +46,7 @@ export interface SalonInfo {
   phone: string;
   working_hours_text: string;
   instagram: string;
+  preparation_text: string;
 }
 
 export interface FaqItem {

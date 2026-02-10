@@ -8,11 +8,9 @@ interface Props {
   isOnboarding: boolean;
 }
 
-const PHONE_PREFIX = "+375";
-
 export default function ProfilePage({ user, onSave, isOnboarding }: Props) {
   const [name, setName] = useState(user.first_name || "");
-  const [phone, setPhone] = useState(user.phone || PHONE_PREFIX);
+  const [phone, setPhone] = useState(user.phone || "+");
   const [instagram, setInstagram] = useState(user.instagram || "");
   const [consent, setConsent] = useState(user.consent_given);
   const [loading, setLoading] = useState(false);
@@ -20,16 +18,12 @@ export default function ProfilePage({ user, onSave, isOnboarding }: Props) {
   const [success, setSuccess] = useState("");
 
   const handlePhoneChange = (val: string) => {
-    // Ensure +375 prefix is always present
-    if (!val.startsWith(PHONE_PREFIX)) {
-      val = PHONE_PREFIX + val.replace(/^\+?3?7?5?/, "");
-    }
-    // Only digits after prefix
-    const afterPrefix = val.slice(PHONE_PREFIX.length).replace(/\D/g, "");
-    setPhone(PHONE_PREFIX + afterPrefix.slice(0, 9));
+    if (!val.startsWith("+")) val = "+" + val.replace(/^\+*/, "");
+    const digits = val.slice(1).replace(/\D/g, "");
+    setPhone("+" + digits.slice(0, 15));
   };
 
-  const isPhoneValid = /^\+375\d{9}$/.test(phone);
+  const isPhoneValid = /^\+\d{7,15}$/.test(phone);
   const canSave = name.trim().length > 0 && isPhoneValid && consent;
 
   const handleSave = async () => {
@@ -75,14 +69,14 @@ export default function ProfilePage({ user, onSave, isOnboarding }: Props) {
           <input
             className="profile-input"
             type="tel"
-            placeholder="+375XXXXXXXXX"
+            placeholder="+XXXXXXXXXXX"
             value={phone}
             onChange={(e) => handlePhoneChange(e.target.value)}
-            maxLength={13}
+            maxLength={16}
             inputMode="tel"
           />
           {phone.length > 4 && !isPhoneValid && (
-            <div className="profile-hint">Формат: +375XXXXXXXXX (9 цифр после +375)</div>
+            <div className="profile-hint">Формат: +XXXXXXXXXXX (7-15 цифр после +)</div>
           )}
         </div>
 

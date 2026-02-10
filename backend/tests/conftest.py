@@ -143,12 +143,12 @@ async def seed_slot(db):
 @pytest_asyncio.fixture
 async def seed_salon(db):
     salon = SalonInfo(
-        name="Chocoo Skin",
+        name="Test Salon",
         description="Салон загара",
         address="ул. Тестовая, 1",
         phone="+375291234567",
         working_hours_text="9:00-21:00",
-        instagram="@chocoo",
+        instagram="@testsalon",
     )
     db.add(salon)
     await db.commit()

@@ -134,6 +134,7 @@ export const generateSlots = (
   startMinute = 30,
   endHour = 21,
   endMinute = 0,
+  intervalMinutes = 20,
 ) =>
   request<Slot[]>("/api/slots/generate", {
     method: "POST",
@@ -143,7 +144,7 @@ export const generateSlots = (
       start_minute: startMinute,
       end_hour: endHour,
       end_minute: endMinute,
-      interval_minutes: 20,
+      interval_minutes: intervalMinutes,
     }),
   });
 
@@ -153,10 +154,11 @@ export const updateSlot = (slotId: number, status: string) =>
     body: JSON.stringify({ status }),
   });
 
-export const getAllBookings = (date?: string, status?: string) => {
+export const getAllBookings = (date?: string, status?: string, limit?: number) => {
   const params = new URLSearchParams();
   if (date) params.set("date", date);
   if (status) params.set("status", status);
+  if (limit) params.set("limit", String(limit));
   const qs = params.toString();
   return request<Booking[]>(`/api/bookings/all${qs ? `?${qs}` : ""}`);
 };
