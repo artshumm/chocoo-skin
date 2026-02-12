@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     salon_name: str = "Салон"
     skip_telegram_validation: bool = False
 
-    model_config = {"env_file": str(ENV_FILE), "env_file_encoding": "utf-8"}
+    model_config = {"env_file": str(ENV_FILE), "env_file_encoding": "utf-8", "extra": "ignore"}
 
     @property
     def admin_id_list(self) -> list[int]:

@@ -7,7 +7,12 @@ import App from "./App";
 window.Telegram?.WebApp?.ready();
 window.Telegram?.WebApp?.expand();
 
-createRoot(document.getElementById("root")!).render(
+const rootElement = document.getElementById("root");
+if (!rootElement) {
+  throw new Error("Root element not found");
+}
+
+createRoot(rootElement).render(
   <BrowserRouter>
     <App />
   </BrowserRouter>

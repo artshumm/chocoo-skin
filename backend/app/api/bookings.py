@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta, timezone
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
@@ -17,6 +18,7 @@ from app.models.models import Booking, BookingStatus, SalonInfo, Service, Slot, 
 from app.schemas.schemas import BookingCreate, BookingResponse
 
 router = APIRouter(prefix="/api/bookings", tags=["bookings"])
+logger = logging.getLogger(__name__)
 
 # Салон в Минске (UTC+3)
 MINSK_TZ = timezone(timedelta(hours=3))
@@ -88,32 +90,45 @@ async def create_booking(
     )
     booking = result.scalar_one()
 
-    # Уведомляем админов
-    await notify_admins_new_booking(
-        first_name=booking.client.first_name,
-        username=booking.client.username,
-        phone=booking.client.phone,
-        service_name=booking.service.name,
-        slot_date=str(booking.slot.date),
-        slot_time=booking.slot.start_time.strftime("%H:%M"),
-        instagram=booking.client.instagram,
-    )
+    # Уведомляем админов (не блокируем создание записи при ошибке)
+    try:
+        await notify_admins_new_booking(
+            first_name=booking.client.first_name,
+            username=booking.client.username,
+            phone=booking.client.phone,
+            service_name=booking.service.name,
+            slot_date=str(booking.slot.date),
+            slot_time=booking.slot.start_time.strftime("%H:%M"),
+            instagram=booking.client.instagram,
+        )
+    except Exception as e:
+        logger.error("Failed to notify admins about new booking %d: %s", booking.id, e)
 
     # Загружаем адрес салона для уведомления
-    salon_result = await db.execute(select(SalonInfo).limit(1))
-    salon = salon_result.scalar_one_or_none()
+    try:
+        salon_result = await db.execute(select(SalonInfo).limit(1))
+        salon = salon_result.scalar_one_or_none()
+        salon_address = salon.address if salon else ""
+        salon_prep_text = salon.preparation_text if salon else ""
+    except Exception as e:
+        logger.error("Failed to load salon info for notification: %s", e)
+        salon_address = ""
+        salon_prep_text = ""
 
-    # Подтверждение клиенту
-    await notify_client_booking_confirmed(
-        telegram_id=booking.client.telegram_id,
-        service_name=booking.service.name,
-        slot_date=str(booking.slot.date),
-        slot_time=booking.slot.start_time.strftime("%H:%M"),
-        remind_before_hours=booking.remind_before_hours,
-        price=float(booking.service.price),
-        address=salon.address if salon else "",
-        preparation_text=salon.preparation_text if salon else "",
-    )
+    # Подтверждение клиенту (не блокируем создание записи при ошибке)
+    try:
+        await notify_client_booking_confirmed(
+            telegram_id=booking.client.telegram_id,
+            service_name=booking.service.name,
+            slot_date=str(booking.slot.date),
+            slot_time=booking.slot.start_time.strftime("%H:%M"),
+            remind_before_hours=booking.remind_before_hours,
+            price=float(booking.service.price),
+            address=salon_address,
+            preparation_text=salon_prep_text,
+        )
+    except Exception as e:
+        logger.error("Failed to notify client %d about booking: %s", booking.client.telegram_id, e)
 
     return booking
 
@@ -179,9 +194,15 @@ async def cancel_booking(
         )
 
     booking.status = BookingStatus.cancelled
+
     # Восстанавливаем слот только если он был забронирован (не если админ заблокировал)
-    if booking.slot.status == SlotStatus.booked:
-        booking.slot.status = SlotStatus.available
+    # Загружаем слот с блокировкой чтобы избежать race condition
+    slot_result = await db.execute(
+        select(Slot).where(Slot.id == booking.slot_id).with_for_update()
+    )
+    slot = slot_result.scalar_one_or_none()
+    if slot and slot.status == SlotStatus.booked:
+        slot.status = SlotStatus.available
 
     await db.commit()
     await db.refresh(booking)
@@ -198,16 +219,19 @@ async def cancel_booking(
     )
     booking = result.scalar_one()
 
-    # Уведомляем админов
-    await notify_admins_cancelled_booking(
-        first_name=booking.client.first_name,
-        username=booking.client.username,
-        phone=booking.client.phone,
-        service_name=booking.service.name,
-        slot_date=str(booking.slot.date),
-        slot_time=booking.slot.start_time.strftime("%H:%M"),
-        instagram=booking.client.instagram,
-    )
+    # Уведомляем админов (не блокируем отмену при ошибке)
+    try:
+        await notify_admins_cancelled_booking(
+            first_name=booking.client.first_name,
+            username=booking.client.username,
+            phone=booking.client.phone,
+            service_name=booking.service.name,
+            slot_date=str(booking.slot.date),
+            slot_time=booking.slot.start_time.strftime("%H:%M"),
+            instagram=booking.client.instagram,
+        )
+    except Exception as e:
+        logger.error("Failed to notify admins about cancelled booking %d: %s", booking.id, e)
 
     return booking
 
@@ -256,24 +280,30 @@ async def admin_cancel_booking(
     )
     booking = result.scalar_one()
 
-    # Уведомляем клиента
-    await notify_client_booking_cancelled_by_admin(
-        telegram_id=booking.client.telegram_id,
-        service_name=booking.service.name,
-        slot_date=str(booking.slot.date),
-        slot_time=booking.slot.start_time.strftime("%H:%M"),
-    )
+    # Уведомляем клиента (не блокируем отмену при ошибке)
+    try:
+        await notify_client_booking_cancelled_by_admin(
+            telegram_id=booking.client.telegram_id,
+            service_name=booking.service.name,
+            slot_date=str(booking.slot.date),
+            slot_time=booking.slot.start_time.strftime("%H:%M"),
+        )
+    except Exception as e:
+        logger.error("Failed to notify client %d about admin cancellation: %s", booking.client.telegram_id, e)
 
-    # Уведомляем админов
-    await notify_admins_cancelled_booking(
-        first_name=booking.client.first_name,
-        username=booking.client.username,
-        phone=booking.client.phone,
-        service_name=booking.service.name,
-        slot_date=str(booking.slot.date),
-        slot_time=booking.slot.start_time.strftime("%H:%M"),
-        instagram=booking.client.instagram,
-    )
+    # Уведомляем админов (не блокируем отмену при ошибке)
+    try:
+        await notify_admins_cancelled_booking(
+            first_name=booking.client.first_name,
+            username=booking.client.username,
+            phone=booking.client.phone,
+            service_name=booking.service.name,
+            slot_date=str(booking.slot.date),
+            slot_time=booking.slot.start_time.strftime("%H:%M"),
+            instagram=booking.client.instagram,
+        )
+    except Exception as e:
+        logger.error("Failed to notify admins about cancelled booking %d: %s", booking.id, e)
 
     return booking
 

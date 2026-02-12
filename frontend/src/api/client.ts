@@ -2,6 +2,11 @@ import type { Booking, Expense, FaqItem, SalonInfo, ScheduleTemplate, Service, S
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
+// Валидация: в production VITE_API_URL обязателен
+if (import.meta.env.PROD && !API_BASE) {
+  throw new Error("VITE_API_URL environment variable is required in production");
+}
+
 /** Глобальный initData — устанавливается из App.tsx при загрузке */
 let _initData = "";
 

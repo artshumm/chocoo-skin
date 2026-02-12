@@ -22,6 +22,12 @@ export default function App() {
   const [authError, setAuthError] = useState("");
 
   useEffect(() => {
+    // Проверка: приложение должно быть открыто из Telegram
+    if (!window.Telegram?.WebApp) {
+      setAuthError("Это приложение должно быть открыто из Telegram");
+      return;
+    }
+
     // Устанавливаем initData для всех API запросов
     setInitData(initData);
 
