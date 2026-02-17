@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getSlotAvailabilityCached } from "../api/client";
 import { nowMinsk } from "../utils/timezone";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface Props {
   selectedDate: string | null;
@@ -84,13 +85,13 @@ export default function Calendar({ selectedDate, onSelect }: Props) {
     <div className="calendar">
       <div className="calendar-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         {monthsToShow.length > 1 && visibleIdx > 0 ? (
-          <span style={{ cursor: "pointer", padding: "0 8px" }} onClick={() => setVisibleIdx(visibleIdx - 1)}>‹</span>
+          <span style={{ cursor: "pointer", padding: "0 8px" }} onClick={() => setVisibleIdx(visibleIdx - 1)}><ChevronLeft size={20} /></span>
         ) : (
           <span style={{ width: 24 }} />
         )}
         <span>{getMonthName(current.month)} {current.year}</span>
         {monthsToShow.length > 1 && visibleIdx < monthsToShow.length - 1 ? (
-          <span style={{ cursor: "pointer", padding: "0 8px" }} onClick={() => setVisibleIdx(visibleIdx + 1)}>›</span>
+          <span style={{ cursor: "pointer", padding: "0 8px" }} onClick={() => setVisibleIdx(visibleIdx + 1)}><ChevronRight size={20} /></span>
         ) : (
           <span style={{ width: 24 }} />
         )}

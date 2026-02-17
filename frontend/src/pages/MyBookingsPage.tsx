@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { getMyBookingsCached, cancelBooking } from "../api/client";
 import type { Booking } from "../types";
 import { msUntilSlotMinsk } from "../utils/timezone";
+import { ClipboardList, Search } from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
   confirmed: "Подтверждена",
@@ -104,7 +105,7 @@ export default function MyBookingsPage() {
 
       {filtered.length === 0 && (
         <div className="empty-state">
-          <div className="empty-state-icon">{bookings.length === 0 ? "📋" : "🔍"}</div>
+          <div className="empty-state-icon">{bookings.length === 0 ? <ClipboardList size={48} strokeWidth={1.25} /> : <Search size={48} strokeWidth={1.25} />}</div>
           {bookings.length === 0 ? "У вас пока нет записей" : "Нет записей в этой категории"}
         </div>
       )}

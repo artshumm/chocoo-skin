@@ -13,6 +13,7 @@ import {
   reorderFaq,
 } from "../api/client";
 import type { FaqItem, SalonInfo, Service } from "../types";
+import { Pencil, X, Check, ChevronUp, ChevronDown } from "lucide-react";
 
 // ── Salon Section ──
 
@@ -211,11 +212,11 @@ function ServicesSection() {
             </div>
           </div>
           <div className="cms-item-actions">
-            <button className="cms-action-btn" onClick={() => openEdit(s)}>&#9998;</button>
+            <button className="cms-action-btn" onClick={() => openEdit(s)}><Pencil size={16} /></button>
             {s.is_active ? (
-              <button className="cms-action-btn danger" onClick={() => handleDelete(s.id)}>&#10005;</button>
+              <button className="cms-action-btn danger" onClick={() => handleDelete(s.id)}><X size={16} /></button>
             ) : (
-              <button className="cms-action-btn success" onClick={() => handleReactivate(s.id)}>&#10003;</button>
+              <button className="cms-action-btn success" onClick={() => handleReactivate(s.id)}><Check size={16} /></button>
             )}
           </div>
         </div>
@@ -388,14 +389,14 @@ function FaqSection() {
               className="cms-action-btn"
               onClick={() => handleMove(idx, -1)}
               disabled={idx === 0}
-            >&#9650;</button>
+            ><ChevronUp size={16} /></button>
             <button
               className="cms-action-btn"
               onClick={() => handleMove(idx, 1)}
               disabled={idx === items.length - 1}
-            >&#9660;</button>
-            <button className="cms-action-btn" onClick={() => openEdit(item)}>&#9998;</button>
-            <button className="cms-action-btn danger" onClick={() => handleDelete(item.id)}>&#10005;</button>
+            ><ChevronDown size={16} /></button>
+            <button className="cms-action-btn" onClick={() => openEdit(item)}><Pencil size={16} /></button>
+            <button className="cms-action-btn danger" onClick={() => handleDelete(item.id)}><X size={16} /></button>
           </div>
         </div>
       ))}

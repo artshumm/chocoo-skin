@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getSalonInfoCached, getFaqCached } from "../api/client";
 import type { SalonInfo, FaqItem } from "../types";
+import { ChevronUp, ChevronDown } from "lucide-react";
 
 export default function HomePage() {
   // Stale-while-revalidate: сначала из localStorage, потом обновляем из сети
@@ -78,7 +79,7 @@ export default function HomePage() {
             >
               <div className="faq-question">
                 {item.question}
-                <span className="faq-arrow">{openFaq === item.id ? "▲" : "▼"}</span>
+                <span className="faq-arrow">{openFaq === item.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
               </div>
               {openFaq === item.id && (
                 <div className="faq-answer">{item.answer}</div>

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { getAllBookings, adminCancelBooking } from "../api/client";
 import type { Booking } from "../types";
 import { todayMinsk } from "../utils/timezone";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
   confirmed: "Подтверждена",
@@ -91,14 +92,14 @@ export default function AdminBookingsPage() {
   return (
     <div className="page">
       <div className="date-nav">
-        <button className="date-nav-btn" onClick={goPrev}>&#8249;</button>
+        <button className="date-nav-btn" onClick={goPrev}><ChevronLeft size={20} /></button>
         <div className="date-nav-center">
           <span className="date-nav-label">{formatDateLabel(selectedDate)}</span>
           {!isToday && (
             <button className="date-nav-today" onClick={goToday}>Сегодня</button>
           )}
         </div>
-        <button className="date-nav-btn" onClick={goNext}>&#8250;</button>
+        <button className="date-nav-btn" onClick={goNext}><ChevronRight size={20} /></button>
       </div>
 
       {error && <div className="error-msg">{error}</div>}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getAllBookings, getExpenses, createExpense, deleteExpense } from "../api/client";
 import type { Booking, Expense } from "../types";
 import { todayMinsk, daysAgoMinsk, currentMonthMinsk } from "../utils/timezone";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 const MONTH_NAMES = [
   "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
@@ -148,9 +149,9 @@ export default function StatsPage() {
 
       {/* Month navigation */}
       <div className="month-nav">
-        <button onClick={() => setSelectedMonth(shiftMonth(selectedMonth, -1))}>&#8249;</button>
+        <button onClick={() => setSelectedMonth(shiftMonth(selectedMonth, -1))}><ChevronLeft size={20} /></button>
         <span>{formatMonthLabel(selectedMonth)}</span>
-        <button onClick={() => setSelectedMonth(shiftMonth(selectedMonth, 1))}>&#8250;</button>
+        <button onClick={() => setSelectedMonth(shiftMonth(selectedMonth, 1))}><ChevronRight size={20} /></button>
       </div>
 
       {/* Revenue cards */}
@@ -214,7 +215,7 @@ export default function StatsPage() {
             <span className="expense-amount">{formatMoney(exp.amount)}</span>
           </div>
           <button className="expense-delete" onClick={() => handleDeleteExpense(exp.id)}>
-            &#10005;
+            <X size={18} />
           </button>
         </div>
       ))}
