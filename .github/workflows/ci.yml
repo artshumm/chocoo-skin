@@ -32,8 +32,12 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run tests
-        run: python -m pytest tests/ -v
+      - name: Run tests with coverage
+        run: python -m pytest tests/ -v --cov=app --cov-report=term-missing --cov-fail-under=60
+
+      - name: Security audit
+        run: pip install pip-audit && pip-audit --strict
+        continue-on-error: true
 
   frontend:
     name: Frontend (React + TypeScript)
@@ -59,3 +63,7 @@ jobs:
 
       - name: TypeScript check + Build
         run: npm run build
+
+      - name: Security audit
+        run: npm audit --audit-level=high
+        continue-on-error: true

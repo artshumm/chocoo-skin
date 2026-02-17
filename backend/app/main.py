@@ -86,6 +86,18 @@ app.include_router(schedule_templates_router)
 
 
 @app.middleware("http")
+async def audit_log(request: Request, call_next):
+    """Логирует мутирующие запросы (POST/PATCH/PUT/DELETE) для аудита."""
+    response = await call_next(request)
+    if request.method in ("POST", "PATCH", "PUT", "DELETE"):
+        logger.info(
+            "AUDIT %s %s -> %d",
+            request.method, request.url.path, response.status_code,
+        )
+    return response
+
+
+@app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Frame-Options"] = "DENY"

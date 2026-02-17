@@ -19,7 +19,7 @@ MINSK_TZ = timezone(timedelta(hours=3))
 async def auth_user(
     tg_user: dict = Depends(get_telegram_user),
     db: AsyncSession = Depends(get_db),
-):
+) -> UserResponse:
     """Регистрация или логин. Данные берутся из валидированного initData."""
     telegram_id = tg_user["id"]
     username = tg_user.get("username")
@@ -63,7 +63,7 @@ async def update_profile(
     data: UserProfileUpdate,
     tg_user: dict = Depends(get_telegram_user),
     db: AsyncSession = Depends(get_db),
-):
+) -> UserResponse:
     """Клиент обновляет имя, телефон и согласие на обработку ПД."""
     if not data.consent_given:
         raise HTTPException(status_code=400, detail="Необходимо дать согласие на обработку персональных данных")

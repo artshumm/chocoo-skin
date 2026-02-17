@@ -11,7 +11,7 @@ router = APIRouter(prefix="/api", tags=["salon"])
 
 
 @router.get("/salon")
-async def get_salon_info(db: AsyncSession = Depends(get_db)):
+async def get_salon_info(db: AsyncSession = Depends(get_db)) -> dict:
     result = await db.execute(select(SalonInfo).limit(1))
     salon = result.scalar_one_or_none()
     if not salon:
@@ -38,7 +38,7 @@ async def update_salon(
     data: SalonUpdate,
     admin_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict:
     result = await db.execute(select(SalonInfo).limit(1))
     salon = result.scalar_one_or_none()
     if not salon:
@@ -61,7 +61,7 @@ async def update_salon(
 
 
 @router.get("/faq", response_model=list[FaqResponse])
-async def get_faq(db: AsyncSession = Depends(get_db)):
+async def get_faq(db: AsyncSession = Depends(get_db)) -> list[FaqResponse]:
     result = await db.execute(select(FaqItem).order_by(FaqItem.order_index))
     return result.scalars().all()
 
@@ -71,7 +71,7 @@ async def create_faq(
     data: FaqCreate,
     admin_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
-):
+) -> FaqResponse:
     item = FaqItem(**data.model_dump())
     db.add(item)
     await db.commit()
@@ -85,7 +85,7 @@ async def update_faq(
     data: FaqUpdate,
     admin_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
-):
+) -> FaqResponse:
     result = await db.execute(select(FaqItem).where(FaqItem.id == faq_id))
     item = result.scalar_one_or_none()
     if not item:
@@ -104,7 +104,7 @@ async def delete_faq(
     faq_id: int,
     admin_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
-):
+) -> None:
     result = await db.execute(select(FaqItem).where(FaqItem.id == faq_id))
     item = result.scalar_one_or_none()
     if not item:
@@ -119,7 +119,7 @@ async def reorder_faq(
     data: FaqReorder,
     admin_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[FaqResponse]:
     """Принимает список id в нужном порядке, обновляет order_index."""
     result = await db.execute(select(FaqItem).where(FaqItem.id.in_(data.ids)))
     items_map = {item.id: item for item in result.scalars().all()}

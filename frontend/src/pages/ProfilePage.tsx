@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { updateProfile } from "../api/client";
 import type { User } from "../types";
+import { formatPhone, isPhoneValid, formatInstagram } from "../utils/validation";
 
 interface Props {
   user: User;
@@ -17,14 +18,8 @@ export default function ProfilePage({ user, onSave, isOnboarding }: Props) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const handlePhoneChange = (val: string) => {
-    if (!val.startsWith("+")) val = "+" + val.replace(/^\+*/, "");
-    const digits = val.slice(1).replace(/\D/g, "");
-    setPhone("+" + digits.slice(0, 15));
-  };
-
-  const isPhoneValid = /^\+\d{7,15}$/.test(phone);
-  const canSave = name.trim().length > 0 && isPhoneValid && consent;
+  const phoneValid = isPhoneValid(phone);
+  const canSave = name.trim().length > 0 && phoneValid && consent;
 
   const handleSave = async () => {
     if (!canSave) return;
@@ -71,11 +66,11 @@ export default function ProfilePage({ user, onSave, isOnboarding }: Props) {
             type="tel"
             placeholder="+XXXXXXXXXXX"
             value={phone}
-            onChange={(e) => handlePhoneChange(e.target.value)}
+            onChange={(e) => setPhone(formatPhone(e.target.value))}
             maxLength={16}
             inputMode="tel"
           />
-          {phone.length > 4 && !isPhoneValid && (
+          {phone.length > 4 && !phoneValid && (
             <div className="profile-hint">Формат: +XXXXXXXXXXX (7-15 цифр после +)</div>
           )}
         </div>
@@ -87,11 +82,7 @@ export default function ProfilePage({ user, onSave, isOnboarding }: Props) {
             type="text"
             placeholder="@username"
             value={instagram}
-            onChange={(e) => {
-              let v = e.target.value.replace(/[^A-Za-z0-9_.@]/g, "");
-              if (v && !v.startsWith("@")) v = "@" + v;
-              setInstagram(v);
-            }}
+            onChange={(e) => setInstagram(formatInstagram(e.target.value))}
             maxLength={31}
           />
         </div>

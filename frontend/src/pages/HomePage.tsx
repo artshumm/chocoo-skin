@@ -19,7 +19,20 @@ export default function HomePage() {
     faqResult.fresh.then(setFaq).catch(() => {});
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (error && !salon) return <div className="error-msg">{error}</div>;
+  const handleRetry = () => {
+    setError("");
+    const retryResult = getSalonInfoCached();
+    retryResult.fresh.then(setSalon).catch(() => setError("Не удалось загрузить информацию о салоне"));
+    const retryFaq = getFaqCached();
+    retryFaq.fresh.then(setFaq).catch(() => {});
+  };
+
+  if (error && !salon) return (
+    <div className="error-retry">
+      <div className="error-retry-msg">{error}</div>
+      <button className="btn" onClick={handleRetry}>Попробовать снова</button>
+    </div>
+  );
 
   return (
     <div className="page">

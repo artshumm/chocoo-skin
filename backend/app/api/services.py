@@ -11,7 +11,7 @@ router = APIRouter(prefix="/api/services", tags=["services"])
 
 
 @router.get("/", response_model=list[ServiceResponse])
-async def get_services(db: AsyncSession = Depends(get_db)):
+async def get_services(db: AsyncSession = Depends(get_db)) -> list[ServiceResponse]:
     """Список активных услуг."""
     result = await db.execute(
         select(Service).where(Service.is_active.is_(True)).order_by(Service.id)
@@ -23,7 +23,7 @@ async def get_services(db: AsyncSession = Depends(get_db)):
 async def get_all_services(
     admin_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[ServiceResponse]:
     """Все услуги (включая неактивные) — для админа."""
     result = await db.execute(select(Service).order_by(Service.id))
     return result.scalars().all()
@@ -34,7 +34,7 @@ async def create_service(
     data: ServiceCreate,
     admin_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
-):
+) -> ServiceResponse:
     service = Service(**data.model_dump())
     db.add(service)
     await db.commit()
@@ -48,7 +48,7 @@ async def update_service(
     data: ServiceUpdate,
     admin_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
-):
+) -> ServiceResponse:
     result = await db.execute(select(Service).where(Service.id == service_id))
     service = result.scalar_one_or_none()
     if not service:
@@ -67,7 +67,7 @@ async def delete_service(
     service_id: int,
     admin_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
-):
+) -> None:
     """Soft-delete: деактивирует услугу (is_active=False).
 
     Не удаляет из БД, чтобы сохранить привязку к существующим записям.

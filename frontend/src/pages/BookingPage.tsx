@@ -1,22 +1,73 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { getServicesCached, getSlots, createBooking, updateProfile } from "../api/client";
 import type { Service, Slot, User } from "../types";
 import Calendar from "../components/Calendar";
 import TimeGrid from "../components/TimeGrid";
+import { formatPhone, isPhoneValid, formatInstagram } from "../utils/validation";
 
 interface Props {
   user: User;
   onUserUpdate: (u: User) => void;
 }
 
+interface RegState {
+  show: boolean;
+  name: string;
+  phone: string;
+  instagram: string;
+  consent: boolean;
+  loading: boolean;
+  error: string;
+}
+
+type RegAction =
+  | { type: "open"; name: string; phone: string; instagram: string; consent: boolean }
+  | { type: "close" }
+  | { type: "setName"; value: string }
+  | { type: "setPhone"; value: string }
+  | { type: "setInstagram"; value: string }
+  | { type: "setConsent"; value: boolean }
+  | { type: "submitStart" }
+  | { type: "submitError"; error: string }
+  | { type: "submitDone" };
+
+function regReducer(state: RegState, action: RegAction): RegState {
+  switch (action.type) {
+    case "open":
+      return { ...state, show: true, name: action.name, phone: action.phone, instagram: action.instagram, consent: action.consent, error: "", loading: false };
+    case "close":
+      return { ...state, show: false };
+    case "setName":
+      return { ...state, name: action.value };
+    case "setPhone":
+      return { ...state, phone: formatPhone(action.value) };
+    case "setInstagram":
+      return { ...state, instagram: formatInstagram(action.value) };
+    case "setConsent":
+      return { ...state, consent: action.value };
+    case "submitStart":
+      return { ...state, loading: true, error: "" };
+    case "submitError":
+      return { ...state, loading: false, error: action.error };
+    case "submitDone":
+      return { ...state, loading: false, show: false };
+  }
+}
+
+const REMIND_OPTIONS = [
+  { value: 1, label: "1ч" },
+  { value: 2, label: "2ч" },
+  { value: 3, label: "3ч" },
+  { value: 6, label: "6ч" },
+  { value: 12, label: "12ч" },
+  { value: 24, label: "24ч" },
+];
+
 export default function BookingPage({ user, onUserUpdate }: Props) {
   const location = useLocation();
-
-  // Pre-select service from "Записаться снова" navigation
   const preSelectServiceId = (location.state as { serviceId?: number } | null)?.serviceId;
 
-  // Stale-while-revalidate: мгновенно показываем кешированные услуги
   const [servicesResult] = useState(() => getServicesCached());
   const [services, setServices] = useState<Service[]>(servicesResult.cached ?? []);
   const [selectedService, setSelectedService] = useState<Service | null>(() => {
@@ -35,25 +86,19 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
   const [remindHours, setRemindHours] = useState(2);
   const bookBtnRef = useRef<HTMLButtonElement>(null);
 
-  // Registration modal state
-  const [showRegModal, setShowRegModal] = useState(false);
-  const [regName, setRegName] = useState(user.first_name || "");
-  const [regPhone, setRegPhone] = useState(user.phone || "+");
-  const [regInstagram, setRegInstagram] = useState(user.instagram || "");
-  const [regConsent, setRegConsent] = useState(user.consent_given);
-  const [regLoading, setRegLoading] = useState(false);
-  const [regError, setRegError] = useState("");
+  const [reg, dispatchReg] = useReducer(regReducer, {
+    show: false,
+    name: user.first_name || "",
+    phone: user.phone || "+",
+    instagram: user.instagram || "",
+    consent: user.consent_given,
+    loading: false,
+    error: "",
+  });
 
-  const REMIND_OPTIONS = [
-    { value: 1, label: "1ч" },
-    { value: 2, label: "2ч" },
-    { value: 3, label: "3ч" },
-    { value: 6, label: "6ч" },
-    { value: 12, label: "12ч" },
-    { value: 24, label: "24ч" },
-  ];
+  const regPhoneValid = isPhoneValid(reg.phone);
+  const canSaveReg = reg.name.trim().length > 0 && regPhoneValid && reg.consent;
 
-  // Обновляем услуги из сети в фоне
   useEffect(() => {
     servicesResult.fresh
       .then((list) => {
@@ -78,7 +123,6 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
       .finally(() => setSlotsLoading(false));
   }, [selectedDate]);
 
-  // Auto-scroll to book button when slot is selected
   useEffect(() => {
     if (selectedSlot && bookBtnRef.current) {
       const timer = setTimeout(() => {
@@ -112,41 +156,23 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
   const handleBook = async () => {
     if (!selectedService || !selectedSlot) return;
     if (needsRegistration) {
-      setShowRegModal(true);
+      dispatchReg({ type: "open", name: user.first_name || "", phone: user.phone || "+", instagram: user.instagram || "", consent: user.consent_given });
       return;
     }
     await doBook();
   };
 
-  const handlePhoneChange = (val: string) => {
-    if (!val.startsWith("+")) val = "+" + val.replace(/^\+*/, "");
-    const digits = val.slice(1).replace(/\D/g, "");
-    setRegPhone("+" + digits.slice(0, 15));
-  };
-
-  const isPhoneValid = /^\+\d{7,15}$/.test(regPhone);
-  const canSaveReg = regName.trim().length > 0 && isPhoneValid && regConsent;
-
-  const handleInstagramChange = (val: string) => {
-    // Auto-add @ and allow only Latin, digits, dots, underscores
-    if (!val.startsWith("@")) val = "@" + val.replace(/^@*/, "");
-    setRegInstagram(val.replace(/[^@A-Za-z0-9_.]/g, "").slice(0, 31));
-  };
-
   const handleRegistrationComplete = async () => {
     if (!canSaveReg) return;
-    setRegLoading(true);
-    setRegError("");
+    dispatchReg({ type: "submitStart" });
     try {
-      const ig = regInstagram.length > 1 ? regInstagram : null;
-      const updated = await updateProfile(regName.trim(), regPhone, true, ig);
+      const ig = reg.instagram.length > 1 ? reg.instagram : null;
+      const updated = await updateProfile(reg.name.trim(), reg.phone, true, ig);
       onUserUpdate(updated);
-      setShowRegModal(false);
+      dispatchReg({ type: "submitDone" });
       await doBook();
     } catch (e) {
-      setRegError(e instanceof Error ? e.message : "Ошибка сохранения");
-    } finally {
-      setRegLoading(false);
+      dispatchReg({ type: "submitError", error: e instanceof Error ? e.message : "Ошибка сохранения" });
     }
   };
 
@@ -231,12 +257,12 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
       )}
 
       {/* Модал регистрации */}
-      {showRegModal && (
-        <div className="modal-overlay" onClick={() => setShowRegModal(false)}>
+      {reg.show && (
+        <div className="modal-overlay" onClick={() => dispatchReg({ type: "close" })}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-title">Для записи заполните данные</div>
 
-            {regError && <div className="error-msg">{regError}</div>}
+            {reg.error && <div className="error-msg">{reg.error}</div>}
 
             <div className="profile-form">
               <div>
@@ -245,8 +271,8 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
                   className="profile-input"
                   type="text"
                   placeholder="Ваше имя"
-                  value={regName}
-                  onChange={(e) => setRegName(e.target.value)}
+                  value={reg.name}
+                  onChange={(e) => dispatchReg({ type: "setName", value: e.target.value })}
                   maxLength={100}
                 />
               </div>
@@ -257,12 +283,12 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
                   className="profile-input"
                   type="tel"
                   placeholder="+XXXXXXXXXXX"
-                  value={regPhone}
-                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  value={reg.phone}
+                  onChange={(e) => dispatchReg({ type: "setPhone", value: e.target.value })}
                   maxLength={16}
                   inputMode="tel"
                 />
-                {regPhone.length > 4 && !isPhoneValid && (
+                {reg.phone.length > 4 && !regPhoneValid && (
                   <div className="profile-hint">Формат: +XXXXXXXXXXX (7-15 цифр после +)</div>
                 )}
               </div>
@@ -273,8 +299,8 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
                   className="profile-input"
                   type="text"
                   placeholder="@username"
-                  value={regInstagram}
-                  onChange={(e) => handleInstagramChange(e.target.value)}
+                  value={reg.instagram}
+                  onChange={(e) => dispatchReg({ type: "setInstagram", value: e.target.value })}
                   maxLength={31}
                 />
               </div>
@@ -283,8 +309,8 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
                 <input
                   className="consent-checkbox"
                   type="checkbox"
-                  checked={regConsent}
-                  onChange={(e) => setRegConsent(e.target.checked)}
+                  checked={reg.consent}
+                  onChange={(e) => dispatchReg({ type: "setConsent", value: e.target.checked })}
                 />
                 <span>
                   Я даю согласие на обработку персональных данных в целях оказания
@@ -292,8 +318,8 @@ export default function BookingPage({ user, onUserUpdate }: Props) {
                 </span>
               </label>
 
-              <button className="btn" onClick={handleRegistrationComplete} disabled={!canSaveReg || regLoading}>
-                {regLoading ? "Сохраняем..." : "Сохранить и записаться"}
+              <button className="btn" onClick={handleRegistrationComplete} disabled={!canSaveReg || reg.loading}>
+                {reg.loading ? "Сохраняем..." : "Сохранить и записаться"}
               </button>
             </div>
           </div>

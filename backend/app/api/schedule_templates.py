@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/schedule-templates", tags=["schedule-templates"]
 async def get_templates(
     _admin: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[ScheduleTemplateResponse]:
     """Возвращает все шаблоны расписания (0-6 записей)."""
     result = await db.execute(
         select(ScheduleTemplate).order_by(ScheduleTemplate.day_of_week)
@@ -30,7 +30,7 @@ async def upsert_templates(
     data: ScheduleTemplateBulk,
     _admin: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[ScheduleTemplateResponse]:
     """Полностью заменяет шаблоны расписания (bulk upsert)."""
     # Проверяем уникальность дней в запросе
     days = [t.day_of_week for t in data.templates]

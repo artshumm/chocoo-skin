@@ -104,6 +104,7 @@ export default function MyBookingsPage() {
 
       {filtered.length === 0 && (
         <div className="empty-state">
+          <div className="empty-state-icon">{bookings.length === 0 ? "📋" : "🔍"}</div>
           {bookings.length === 0 ? "У вас пока нет записей" : "Нет записей в этой категории"}
         </div>
       )}

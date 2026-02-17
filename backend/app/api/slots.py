@@ -19,7 +19,7 @@ SLOT_CUTOFF_MINUTES = 60
 async def get_slots(
     date: date = Query(..., description="Дата в формате YYYY-MM-DD"),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[SlotResponse]:
     """Свободные слоты на указанную дату (для клиента)."""
     query = select(Slot).where(Slot.date == date, Slot.status == SlotStatus.available)
 
@@ -38,7 +38,7 @@ async def get_slot_availability(
     date_from: date = Query(..., alias="from", description="Начальная дата YYYY-MM-DD"),
     date_to: date = Query(..., alias="to", description="Конечная дата YYYY-MM-DD"),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, int]:
     """Количество свободных слотов по датам (для календаря)."""
     if (date_to - date_from).days > 31:
         raise HTTPException(status_code=400, detail="Максимальный диапазон — 31 день")
@@ -66,7 +66,7 @@ async def get_all_slots(
     date: date = Query(..., description="Дата в формате YYYY-MM-DD"),
     _admin: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[SlotResponse]:
     """Все слоты на дату — для админа (включая booked и blocked)."""
     result = await db.execute(
         select(Slot).where(Slot.date == date).order_by(Slot.start_time)
@@ -79,7 +79,7 @@ async def generate_slots(
     data: SlotCreate,
     _admin: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[SlotResponse]:
     """Админ генерирует слоты на день (например, с 9:00 до 21:00 по 20 мин)."""
     # Нельзя генерировать слоты на прошедшие даты
     now_minsk = datetime.now(MINSK_TZ)
@@ -128,7 +128,7 @@ async def update_slot(
     data: SlotUpdate,
     _admin: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
-):
+) -> SlotResponse:
     """Админ блокирует/разблокирует слот."""
     result = await db.execute(
         select(Slot).where(Slot.id == slot_id).with_for_update()

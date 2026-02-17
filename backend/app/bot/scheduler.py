@@ -81,6 +81,8 @@ async def _check_reminders() -> None:
         salon = salon_result.scalar_one_or_none()
         salon_address = salon.address if salon else ""
 
+        # Collect eligible bookings and build messages
+        send_tasks: list[tuple[int, str, int]] = []  # (telegram_id, text, booking_id)
         for booking in bookings:
             slot = booking.slot
             appointment_dt = datetime.combine(
@@ -90,9 +92,8 @@ async def _check_reminders() -> None:
             remind_threshold = timedelta(hours=booking.remind_before_hours)
 
             if timedelta(0) < time_until <= remind_threshold:
-                # Сначала помечаем как отправленное (защита от дублей при рестарте/повторе)
+                # Mark before send (защита от дублей при рестарте)
                 booking.reminded = True
-                await db.commit()
 
                 lines = [
                     f"⏰ Напоминание!\n",
@@ -103,25 +104,27 @@ async def _check_reminders() -> None:
                 if salon_address:
                     lines.append(f"\nАдрес: {salon_address}")
                 lines.append("\nЖдём вас!")
-                text = "\n".join(lines)
-                try:
-                    await asyncio.wait_for(
-                        bot.send_message(
-                            chat_id=booking.client.telegram_id, text=text
-                        ),
-                        timeout=10.0,
-                    )
-                    logger.info(
-                        "Reminder sent to %s for booking %s",
-                        booking.client.telegram_id,
-                        booking.id,
-                    )
-                except Exception as e:
-                    logger.warning(
-                        "Failed to send reminder to %s: %s",
-                        booking.client.telegram_id,
-                        e,
-                    )
+                send_tasks.append((booking.client.telegram_id, "\n".join(lines), booking.id))
+
+        if not send_tasks:
+            return
+
+        # Batch commit all reminded flags before sending
+        await db.commit()
+
+        # Send all reminders in parallel
+        async def _send_reminder(tid: int, text: str, bid: int) -> None:
+            try:
+                await asyncio.wait_for(
+                    bot.send_message(chat_id=tid, text=text), timeout=10.0,
+                )
+                logger.info("Reminder sent to %s for booking %s", tid, bid)
+            except Exception as e:
+                logger.warning("Failed to send reminder to %s: %s", tid, e)
+
+        await asyncio.gather(
+            *[_send_reminder(tid, text, bid) for tid, text, bid in send_tasks]
+        )
 
 
 async def _check_morning_summary() -> None:
@@ -268,7 +271,8 @@ async def _check_post_session_feedback() -> None:
         )
         bookings = result.scalars().all()
 
-        sent_count = 0
+        # Collect eligible bookings for parallel sending
+        eligible: list[Booking] = []
         for booking in bookings:
             slot = booking.slot
             end_dt = datetime.combine(
@@ -276,13 +280,28 @@ async def _check_post_session_feedback() -> None:
             ) + timedelta(minutes=booking.service.duration_minutes)
 
             if now_minsk >= end_dt + timedelta(hours=FEEDBACK_DELAY_HOURS):
-                sent = await notify_client_post_session(
-                    telegram_id=booking.client.telegram_id,
-                    service_name=booking.service.name,
+                eligible.append(booking)
+
+        if not eligible:
+            return
+
+        # Send all feedback messages in parallel
+        results = await asyncio.gather(
+            *[
+                notify_client_post_session(
+                    telegram_id=b.client.telegram_id,
+                    service_name=b.service.name,
                 )
-                if sent:
-                    booking.feedback_sent = True
-                    sent_count += 1
+                for b in eligible
+            ]
+        )
+
+        # Mark only successfully sent ones (send-then-mark pattern)
+        sent_count = 0
+        for booking, sent in zip(eligible, results):
+            if sent:
+                booking.feedback_sent = True
+                sent_count += 1
 
         if sent_count:
             await db.commit()
