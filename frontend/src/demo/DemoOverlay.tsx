@@ -10,6 +10,7 @@ import {
   GraduationCap,
   Monitor,
   Wind,
+  TreePine,
   ChevronDown,
   ChevronUp,
   Plus,
@@ -57,6 +58,7 @@ const PRESETS: PresetConfig[] = [
   { key: "tutor", label: "Репетитор", Icon: GraduationCap },
   { key: "gaming", label: "Комп. клуб", Icon: Monitor },
   { key: "hookah", label: "Кальянная", Icon: Wind },
+  { key: "cabin_rental", label: "Домики", Icon: TreePine },
 ];
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
