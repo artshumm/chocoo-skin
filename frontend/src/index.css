@@ -173,7 +173,7 @@ body {
 @supports (backdrop-filter: blur(10px)) {
   .navbar { backdrop-filter: blur(10px); background: rgba(255,255,255,0.9); }
 }
-.nav-item { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; padding: var(--space-xs) var(--space-sm); cursor: pointer; color: var(--tg-hint); font-size: var(--text-xs); text-decoration: none; transition: color 0.2s; min-height: var(--touch-min); justify-content: center; flex: 1 0 auto; white-space: nowrap; }
+.nav-item { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; padding: var(--space-xs) var(--space-md); cursor: pointer; color: var(--tg-hint); font-size: var(--text-xs); text-decoration: none; transition: color 0.2s; min-height: var(--touch-min); justify-content: center; flex: 0 0 auto; min-width: max-content; white-space: nowrap; }
 .nav-item:active { opacity: 0.7; }
 .nav-item.active { color: var(--tg-btn); }
 .nav-icon { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
