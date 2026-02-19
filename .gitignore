@@ -1,11 +1,35 @@
+# Secrets & credentials
 .env
 credentials.md
+
+# Claude Code (local tooling)
 CLAUDE.md
 .claude/
+.agents/
+
+# Python
 __pycache__/
 *.pyc
 .venv/
 venv/
+*.coverage
+.coverage
+
+# Node
 node_modules/
 dist/
+dist-demo/
+
+# Demo
+demo.db
+
+# OS
 .DS_Store
+
+# Working notes (not for repo)
+findings.md
+progress.md
+task_plan.md
+TESTING_SUMMARY.md
+TEST_REPORT.md
+Plans/

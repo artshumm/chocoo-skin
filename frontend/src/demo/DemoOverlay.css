@@ -1,0 +1,299 @@
+/* ============================================================
+   Demo Overlay — Floating control panel
+   Design: Soft UI Evolution (matches --color-brand: #D4A574)
+   ============================================================ */
+
+/* --- Top bar (always visible) --- */
+.demo-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  background: linear-gradient(135deg, #D4A574, #C4956A);
+  color: white;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.demo-badge {
+  background: rgba(255, 255, 255, 0.25);
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+}
+
+.demo-preset-name {
+  flex: 1;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.demo-role-btn,
+.demo-expand-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+}
+
+.demo-role-btn:hover,
+.demo-expand-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.demo-role-btn:active,
+.demo-expand-btn:active {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+/* --- Expandable panel --- */
+.demo-panel {
+  position: fixed;
+  top: 44px; /* below bar */
+  left: 0;
+  right: 0;
+  z-index: 9998;
+  background: white;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 16px;
+  max-height: 80vh;
+  overflow-y: auto;
+  animation: demo-slide-down 0.2s ease-out;
+}
+
+@keyframes demo-slide-down {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* --- Presets grid (2 columns x 5 rows) --- */
+.demo-presets-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.demo-preset-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: #fafafa;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+  transition: all 0.15s;
+}
+
+.demo-preset-btn:hover {
+  background: #f0e8df;
+  border-color: #D4A574;
+}
+
+.demo-preset-btn:active {
+  transform: scale(0.97);
+}
+
+.demo-preset-btn.active {
+  background: linear-gradient(135deg, #D4A574, #C4956A);
+  color: white;
+  border-color: #D4A574;
+}
+
+.demo-preset-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* --- Custom business section --- */
+.demo-custom-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.demo-custom-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px dashed rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+  width: 100%;
+  transition: all 0.15s;
+}
+
+.demo-custom-toggle:hover {
+  background: #fafafa;
+  border-color: #D4A574;
+  color: #333;
+}
+
+.demo-custom-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.demo-custom-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.demo-custom-form input {
+  padding: 8px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.demo-custom-form input:focus {
+  border-color: #D4A574;
+}
+
+.demo-custom-form input::placeholder {
+  color: #aaa;
+}
+
+.demo-service-row {
+  display: grid;
+  grid-template-columns: 1fr 80px 80px 32px;
+  gap: 4px;
+  align-items: center;
+}
+
+.demo-service-row input {
+  min-width: 0; /* prevent grid overflow */
+}
+
+.demo-remove-service-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  color: #e74c3c;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.demo-remove-service-btn:hover {
+  background: #ffebee;
+}
+
+.demo-add-service-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px dashed rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  color: #999;
+  transition: all 0.15s;
+}
+
+.demo-add-service-btn:hover {
+  border-color: #D4A574;
+  color: #D4A574;
+}
+
+.demo-custom-submit {
+  background: linear-gradient(135deg, #D4A574, #C4956A);
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.demo-custom-submit:hover {
+  opacity: 0.9;
+}
+
+.demo-custom-submit:active {
+  transform: scale(0.98);
+}
+
+.demo-custom-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* --- Status messages --- */
+.demo-error {
+  color: #e74c3c;
+  font-size: 12px;
+  text-align: center;
+  padding: 4px;
+  animation: demo-fade-in 0.2s ease-out;
+}
+
+.demo-loading {
+  text-align: center;
+  padding: 8px;
+  color: #999;
+  font-size: 13px;
+}
+
+@keyframes demo-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* --- Compensate body padding for fixed bar --- */
+body.demo-mode {
+  padding-top: 44px !important;
+}
