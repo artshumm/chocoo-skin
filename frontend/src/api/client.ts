@@ -173,6 +173,12 @@ export const adminCancelBooking = (bookingId: number) =>
     method: "PATCH",
   });
 
+export const adminRescheduleBooking = (bookingId: number, newSlotId: number) =>
+  request<Booking>(`/api/bookings/${bookingId}/admin-reschedule`, {
+    method: "PATCH",
+    body: JSON.stringify({ new_slot_id: newSlotId }),
+  });
+
 // Expenses (Admin)
 export const getExpenses = (month: string) =>
   request<Expense[]>(`/api/expenses/?month=${month}`);

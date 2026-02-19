@@ -130,6 +130,12 @@ class BookingCreate(BaseModel):
     remind_before_hours: int = Field(default=2, ge=1, le=24)
 
 
+class BookingReschedule(BaseModel):
+    """Админ переносит запись на другой слот."""
+
+    new_slot_id: int = Field(..., gt=0)
+
+
 class BookingResponse(BaseModel):
     id: int
     status: str

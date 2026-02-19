@@ -165,6 +165,57 @@ async def notify_client_post_session(
         return False
 
 
+async def notify_client_booking_rescheduled(
+    telegram_id: int,
+    service_name: str,
+    old_date: str,
+    old_time: str,
+    new_date: str,
+    new_time: str,
+    address: str = "",
+) -> None:
+    """Уведомляет клиента о переносе записи администратором."""
+    lines = [
+        "Ваша запись перенесена администратором.\n",
+        f"Услуга: {service_name}",
+        f"Было: {old_date} в {old_time}",
+        f"Стало: {new_date} в {new_time}",
+    ]
+    if address:
+        lines.append(f"\nАдрес: {address}")
+    text = "\n".join(lines)
+    try:
+        await asyncio.wait_for(
+            bot.send_message(chat_id=telegram_id, text=text),
+            timeout=SEND_TIMEOUT,
+        )
+    except Exception as e:
+        logger.warning("Failed to send reschedule notification to client %s: %s", telegram_id, e)
+
+
+async def notify_admins_rescheduled_booking(
+    first_name: str | None,
+    username: str | None,
+    phone: str | None,
+    service_name: str,
+    old_date: str,
+    old_time: str,
+    new_date: str,
+    new_time: str,
+    instagram: str | None = None,
+) -> None:
+    """Уведомляет всех админов о переносе записи."""
+    client_info = _format_client_info(first_name, username, phone, instagram)
+    text = (
+        f"🔄 Перенос записи\n\n"
+        f"{client_info}\n"
+        f"Услуга: {service_name}\n"
+        f"Было: {old_date} в {old_time}\n"
+        f"Стало: {new_date} в {new_time}"
+    )
+    await _send_to_admins(text)
+
+
 async def _send_to_admins(text: str) -> None:
     """Отправляет сообщение всем админам. Ошибки логируются, не прерывают работу."""
     for admin_id in settings.admin_id_list:

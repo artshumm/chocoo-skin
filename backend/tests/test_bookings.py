@@ -196,3 +196,214 @@ async def test_admin_cancel_non_admin(client, mock_notifications):
     """Regular user cannot use admin-cancel."""
     r = await client.patch("/api/bookings/1/admin-cancel")
     assert r.status_code == 403
+
+
+# --- Admin reschedule ---
+
+
+async def test_admin_reschedule_success(
+    admin_client, db, seed_user, seed_service, seed_slot, seed_slot_2, mock_notifications
+):
+    """Admin reschedules a confirmed booking to a new slot."""
+    # Create confirmed booking on seed_slot (mark slot as booked)
+    booking = Booking(
+        client_id=seed_user.id,
+        service_id=seed_service.id,
+        slot_id=seed_slot.id,
+        status=BookingStatus.confirmed,
+        remind_before_hours=2,
+    )
+    seed_slot.status = SlotStatus.booked
+    db.add(booking)
+    await db.commit()
+    await db.refresh(booking)
+
+    old_slot_id = seed_slot.id
+    new_slot_id = seed_slot_2.id
+
+    r = await admin_client.patch(
+        f"/api/bookings/{booking.id}/admin-reschedule",
+        json={"new_slot_id": new_slot_id},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["slot"]["id"] == new_slot_id
+    assert data["slot"]["date"] == "2026-12-26"
+
+    # reminded should be reset
+    await db.refresh(booking)
+    assert booking.reminded is False
+
+    # Old slot should be available again
+    await db.refresh(seed_slot)
+    assert seed_slot.status == SlotStatus.available
+
+    # New slot should be booked
+    await db.refresh(seed_slot_2)
+    assert seed_slot_2.status == SlotStatus.booked
+
+    # Both reschedule notifications called
+    mock_notifications["client_rescheduled"].assert_called_once()
+    mock_notifications["admins_rescheduled"].assert_called_once()
+
+
+async def test_admin_reschedule_non_admin(client, mock_notifications):
+    """Regular user cannot use admin-reschedule."""
+    r = await client.patch(
+        "/api/bookings/1/admin-reschedule",
+        json={"new_slot_id": 1},
+    )
+    assert r.status_code == 403
+
+
+async def test_admin_reschedule_nonexistent_booking(admin_client, mock_notifications):
+    """Reschedule nonexistent booking → 404."""
+    r = await admin_client.patch(
+        "/api/bookings/99999/admin-reschedule",
+        json={"new_slot_id": 1},
+    )
+    assert r.status_code == 404
+
+
+async def test_admin_reschedule_cancelled_booking(
+    admin_client, db, seed_user, seed_service, seed_slot, seed_slot_2, mock_notifications
+):
+    """Cannot reschedule a cancelled booking."""
+    booking = Booking(
+        client_id=seed_user.id,
+        service_id=seed_service.id,
+        slot_id=seed_slot.id,
+        status=BookingStatus.cancelled,
+        remind_before_hours=2,
+    )
+    db.add(booking)
+    await db.commit()
+    await db.refresh(booking)
+
+    r = await admin_client.patch(
+        f"/api/bookings/{booking.id}/admin-reschedule",
+        json={"new_slot_id": seed_slot_2.id},
+    )
+    assert r.status_code == 400
+    assert "подтверждённую" in r.json()["detail"]
+
+
+async def test_admin_reschedule_completed_booking(
+    admin_client, db, seed_user, seed_service, seed_slot, seed_slot_2, mock_notifications
+):
+    """Cannot reschedule a completed booking."""
+    booking = Booking(
+        client_id=seed_user.id,
+        service_id=seed_service.id,
+        slot_id=seed_slot.id,
+        status=BookingStatus.completed,
+        remind_before_hours=2,
+    )
+    db.add(booking)
+    await db.commit()
+    await db.refresh(booking)
+
+    r = await admin_client.patch(
+        f"/api/bookings/{booking.id}/admin-reschedule",
+        json={"new_slot_id": seed_slot_2.id},
+    )
+    assert r.status_code == 400
+    assert "подтверждённую" in r.json()["detail"]
+
+
+async def test_admin_reschedule_same_slot(
+    admin_client, db, seed_user, seed_service, seed_slot, mock_notifications
+):
+    """Cannot reschedule to the same slot."""
+    booking = Booking(
+        client_id=seed_user.id,
+        service_id=seed_service.id,
+        slot_id=seed_slot.id,
+        status=BookingStatus.confirmed,
+        remind_before_hours=2,
+    )
+    seed_slot.status = SlotStatus.booked
+    db.add(booking)
+    await db.commit()
+    await db.refresh(booking)
+
+    r = await admin_client.patch(
+        f"/api/bookings/{booking.id}/admin-reschedule",
+        json={"new_slot_id": seed_slot.id},
+    )
+    assert r.status_code == 400
+    assert "совпадает" in r.json()["detail"]
+
+
+async def test_admin_reschedule_slot_booked(
+    admin_client, db, seed_user, seed_service, seed_slot, seed_slot_2, mock_notifications
+):
+    """Cannot reschedule to a slot that is already booked."""
+    booking = Booking(
+        client_id=seed_user.id,
+        service_id=seed_service.id,
+        slot_id=seed_slot.id,
+        status=BookingStatus.confirmed,
+        remind_before_hours=2,
+    )
+    seed_slot.status = SlotStatus.booked
+    seed_slot_2.status = SlotStatus.booked
+    db.add(booking)
+    await db.commit()
+    await db.refresh(booking)
+
+    r = await admin_client.patch(
+        f"/api/bookings/{booking.id}/admin-reschedule",
+        json={"new_slot_id": seed_slot_2.id},
+    )
+    assert r.status_code == 400
+    assert "недоступен" in r.json()["detail"]
+
+
+async def test_admin_reschedule_slot_blocked(
+    admin_client, db, seed_user, seed_service, seed_slot, seed_slot_2, mock_notifications
+):
+    """Cannot reschedule to a blocked slot."""
+    booking = Booking(
+        client_id=seed_user.id,
+        service_id=seed_service.id,
+        slot_id=seed_slot.id,
+        status=BookingStatus.confirmed,
+        remind_before_hours=2,
+    )
+    seed_slot.status = SlotStatus.booked
+    seed_slot_2.status = SlotStatus.blocked
+    db.add(booking)
+    await db.commit()
+    await db.refresh(booking)
+
+    r = await admin_client.patch(
+        f"/api/bookings/{booking.id}/admin-reschedule",
+        json={"new_slot_id": seed_slot_2.id},
+    )
+    assert r.status_code == 400
+    assert "недоступен" in r.json()["detail"]
+
+
+async def test_admin_reschedule_slot_not_found(
+    admin_client, db, seed_user, seed_service, seed_slot, mock_notifications
+):
+    """Cannot reschedule to a nonexistent slot."""
+    booking = Booking(
+        client_id=seed_user.id,
+        service_id=seed_service.id,
+        slot_id=seed_slot.id,
+        status=BookingStatus.confirmed,
+        remind_before_hours=2,
+    )
+    seed_slot.status = SlotStatus.booked
+    db.add(booking)
+    await db.commit()
+    await db.refresh(booking)
+
+    r = await admin_client.patch(
+        f"/api/bookings/{booking.id}/admin-reschedule",
+        json={"new_slot_id": 99999},
+    )
+    assert r.status_code == 404
+    assert "слот" in r.json()["detail"].lower()

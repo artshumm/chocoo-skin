@@ -10,12 +10,14 @@ from app.api.deps import get_telegram_user, require_admin
 from app.bot.notifications import (
     notify_admins_cancelled_booking,
     notify_admins_new_booking,
+    notify_admins_rescheduled_booking,
     notify_client_booking_cancelled_by_admin,
     notify_client_booking_confirmed,
+    notify_client_booking_rescheduled,
 )
 from app.core.database import get_db
 from app.models.models import Booking, BookingStatus, SalonInfo, Service, Slot, SlotStatus, User
-from app.schemas.schemas import BookingCreate, BookingResponse
+from app.schemas.schemas import BookingCreate, BookingReschedule, BookingResponse
 
 router = APIRouter(prefix="/api/bookings", tags=["bookings"])
 logger = logging.getLogger(__name__)
@@ -266,6 +268,104 @@ async def admin_cancel_booking(
 
     booking = await _cancel_and_release_slot(booking, db)
     await _send_cancel_notifications(booking, by_admin=True)
+    return booking
+
+
+@router.patch("/{booking_id}/admin-reschedule", response_model=BookingResponse)
+async def admin_reschedule_booking(
+    booking_id: int,
+    data: BookingReschedule,
+    _admin: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> BookingResponse:
+    """Админ переносит запись клиента на другой слот."""
+    # 1. Загружаем booking с блокировкой
+    result = await db.execute(
+        select(Booking)
+        .where(Booking.id == booking_id)
+        .options(*_BOOKING_LOAD_OPTIONS)
+        .with_for_update()
+    )
+    booking = result.scalar_one_or_none()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Запись не найдена")
+
+    if booking.status != BookingStatus.confirmed:
+        raise HTTPException(status_code=400, detail="Можно перенести только подтверждённую запись")
+
+    # 2. Нельзя перенести на тот же слот
+    if booking.slot_id == data.new_slot_id:
+        raise HTTPException(status_code=400, detail="Новый слот совпадает с текущим")
+
+    # 3. Загружаем старый слот с блокировкой, сохраняем дату/время для уведомления
+    old_slot_result = await db.execute(
+        select(Slot).where(Slot.id == booking.slot_id).with_for_update()
+    )
+    old_slot = old_slot_result.scalar_one()
+    old_date_str = str(old_slot.date)
+    old_time_str = old_slot.start_time.strftime("%H:%M")
+
+    # 4. Загружаем новый слот с блокировкой
+    new_slot_result = await db.execute(
+        select(Slot).where(Slot.id == data.new_slot_id).with_for_update()
+    )
+    new_slot = new_slot_result.scalar_one_or_none()
+    if not new_slot:
+        raise HTTPException(status_code=404, detail="Новый слот не найден")
+    if new_slot.status != SlotStatus.available:
+        raise HTTPException(status_code=400, detail="Новый слот недоступен")
+
+    # 5. Атомарный swap
+    old_slot.status = SlotStatus.available
+    new_slot.status = SlotStatus.booked
+    booking.slot_id = data.new_slot_id
+    booking.reminded = False
+
+    await db.commit()
+
+    # 6. Перезагружаем booking с relations (сохраняем id до expire — иначе MissingGreenlet)
+    booking_id_val = booking.id
+    db.expire(booking)
+    booking = await _load_booking_with_relations(db, booking_id_val)
+
+    # 7. Уведомления (не блокируют ответ)
+    # Загружаем адрес салона для уведомления клиента
+    try:
+        salon_result = await db.execute(select(SalonInfo).limit(1))
+        salon = salon_result.scalar_one_or_none()
+        salon_address = salon.address if salon else ""
+    except Exception as e:
+        logger.error("Failed to load salon info for reschedule notification: %s", e)
+        salon_address = ""
+
+    try:
+        await notify_client_booking_rescheduled(
+            telegram_id=booking.client.telegram_id,
+            service_name=booking.service.name,
+            old_date=old_date_str,
+            old_time=old_time_str,
+            new_date=str(booking.slot.date),
+            new_time=booking.slot.start_time.strftime("%H:%M"),
+            address=salon_address,
+        )
+    except Exception as e:
+        logger.error("Failed to notify client %d about reschedule: %s", booking.client.telegram_id, e)
+
+    try:
+        await notify_admins_rescheduled_booking(
+            first_name=booking.client.first_name,
+            username=booking.client.username,
+            phone=booking.client.phone,
+            service_name=booking.service.name,
+            old_date=old_date_str,
+            old_time=old_time_str,
+            new_date=str(booking.slot.date),
+            new_time=booking.slot.start_time.strftime("%H:%M"),
+            instagram=booking.client.instagram,
+        )
+    except Exception as e:
+        logger.error("Failed to notify admins about reschedule for booking %d: %s", booking.id, e)
+
     return booking
 
 

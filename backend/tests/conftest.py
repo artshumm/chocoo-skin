@@ -168,6 +168,21 @@ async def seed_faq(db):
 
 
 @pytest_asyncio.fixture
+async def seed_slot_2(db):
+    """Second slot on a different date (2026-12-26 11:00-11:20)."""
+    slot = Slot(
+        date=date(2026, 12, 26),
+        start_time=time(11, 0),
+        end_time=time(11, 20),
+        status=SlotStatus.available,
+    )
+    db.add(slot)
+    await db.commit()
+    await db.refresh(slot)
+    return slot
+
+
+@pytest_asyncio.fixture
 def mock_notifications():
     """Mock all bot notification functions."""
     with (
@@ -175,5 +190,14 @@ def mock_notifications():
         patch("app.api.bookings.notify_client_booking_confirmed", new_callable=AsyncMock) as m2,
         patch("app.api.bookings.notify_admins_cancelled_booking", new_callable=AsyncMock) as m3,
         patch("app.api.bookings.notify_client_booking_cancelled_by_admin", new_callable=AsyncMock) as m4,
+        patch("app.api.bookings.notify_client_booking_rescheduled", new_callable=AsyncMock) as m5,
+        patch("app.api.bookings.notify_admins_rescheduled_booking", new_callable=AsyncMock) as m6,
     ):
-        yield {"new": m1, "confirmed": m2, "cancelled": m3, "admin_cancelled": m4}
+        yield {
+            "new": m1,
+            "confirmed": m2,
+            "cancelled": m3,
+            "admin_cancelled": m4,
+            "client_rescheduled": m5,
+            "admins_rescheduled": m6,
+        }
